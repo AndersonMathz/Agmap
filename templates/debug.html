@@ -1,0 +1,65 @@
+{% extends "login_base.html" %}
+
+{% block title %}Debug - WebGIS{% endblock %}
+
+{% block content %}
+<div class="row" style="height: 100vh; margin: 0;">
+    <!-- Sidebar -->
+    <div class="col-md-3" style="background: linear-gradient(135deg, #2e60ff 0%, #12357c 100%); color: white; height: 100vh; padding: 20px;">
+        <h4><i class="fas fa-map-marked-alt"></i> WebGIS Debug</h4>
+        <p>Versão de teste</p>
+        
+        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 20px;">
+            <h6><i class="fas fa-layer-group"></i> Status</h6>
+            <p>Sidebar funcionando ✅</p>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 20px;">
+            <h6><i class="fas fa-user"></i> Usuário</h6>
+            <p>{{ current_user.name if current_user.is_authenticated else 'Não autenticado' }}</p>
+        </div>
+    </div>
+    
+    <!-- Map Container -->
+    <div class="col-md-9" style="height: 100vh; padding: 0; background: #f0f0f0;">
+        <div id="map" style="height: 100%; width: 100%; background: #e0e0e0; position: relative;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); text-align: center;">
+                <h5>🗺️ Área do Mapa</h5>
+                <p>Se você vê esta mensagem, o layout está funcionando!</p>
+                <button class="btn btn-primary" onclick="testMap()">Testar Mapa</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+console.log('🔍 Debug template carregado');
+console.log('📋 Sidebar:', document.querySelector('.col-md-3'));
+console.log('🗺️ Mapa:', document.getElementById('map'));
+
+function testMap() {
+    console.log('🧪 Teste do mapa iniciado');
+    
+    // Verificar se Leaflet está disponível
+    if (typeof L === 'undefined') {
+        alert('❌ Leaflet não está carregado!');
+        return;
+    }
+    
+    // Tentar criar um mapa simples
+    try {
+        const map = L.map('map').setView([-15.7801, -47.9292], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        alert('✅ Mapa criado com sucesso!');
+    } catch (error) {
+        alert('❌ Erro ao criar mapa: ' + error.message);
+        console.error('Erro:', error);
+    }
+}
+</script>
+{% endblock %} 

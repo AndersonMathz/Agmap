@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # PostgreSQL com PostGIS para dados geográficos
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: webag_postgres
+    environment:
+      POSTGRES_DB: webgis_db
+      POSTGRES_USER: webgis_user
+      POSTGRES_PASSWORD: webgis_pass123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webgis_user -d webgis_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Redis para cache (futuro)
+  redis:
+    image: redis:7-alpine
+    container_name: webag_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --requirepass redis_pass123
+
+  # WEBAG Application (quando Flask estiver pronto)
+  webag:
+    build: .
+    container_name: webag_app
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://webgis_user:webgis_pass123@postgres:5432/webgis_db
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ADMIN_PASSWORD=AdminPass123!
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - full  # Só ativa quando Flask estiver funcionando
+
+volumes:
+  postgres_data:

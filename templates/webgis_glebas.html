@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>WebGIS Professional - Sistema de Glebas</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-blue: #2e60ff;
+            --primary-dark: #12357c;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+            min-height: 100vh;
+        }
+
+        .navbar { 
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            color: white; 
+            padding: 1rem;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+
+        .navbar-title { 
+            font-size: 1.5rem; 
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .main-container { 
+            display: flex; 
+            height: calc(100vh - 70px);
+        }
+
+        .sidebar { 
+            width: 300px; 
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--glass-border);
+            padding: 1rem; 
+            overflow-y: auto;
+            color: white;
+        }
+
+        .edit-panel {
+            width: 350px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid var(--glass-border);
+            padding: 1rem;
+            overflow-y: auto;
+            color: white;
+            max-height: calc(100vh - 70px);
+        }
+
+        .edit-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .close-panel-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .close-panel-btn:hover {
+            opacity: 1;
+        }
+
+        .map-container { 
+            flex: 1; 
+            position: relative;
+        }
+
+        #map { 
+            height: 100%; 
+            width: 100%;
+        }
+
+        .sidebar-section { 
+            margin-bottom: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .sidebar-section h6 { 
+            color: white; 
+            margin-bottom: 0.5rem; 
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .form-section {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .section-title {
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: #fff;
+            font-size: 0.85rem;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 0.85rem;
+            backdrop-filter: blur(5px);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgba(46, 96, 255, 0.3);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .btn-glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            color: white;
+        }
+
+        .btn-primary-glass {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+            border: none;
+        }
+
+        .btn-primary-glass:hover {
+            background: linear-gradient(135deg, #4169ff, #1a4096);
+        }
+
+        .status-bar { 
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            color: white; 
+            padding: 0.5rem; 
+            font-size: 0.9rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .gleba-popup h6 {
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .gleba-popup p {
+            margin: 0.2rem 0;
+            font-size: 0.85rem;
+        }
+
+        .popup-actions {
+            margin-top: 0.8rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .popup-actions .btn {
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+        }
+
+        /* Estilos para leaflet draw */
+        .leaflet-draw-toolbar a {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .leaflet-draw-toolbar a:hover {
+            background-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        /* Animações */
+        .edit-panel {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .sidebar-section {
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-section:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Toolbar de Navegação (estilo geojson.io) */
+        .navigation-toolbar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .toolbar-group {
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+        }
+
+        .toolbar-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .nav-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            margin: 1px 0;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.05);
+        }
+
+        .nav-btn.active {
+            background: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgba(46, 96, 255, 0.3);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Modal de Edição de Atributos (estilo geojson.io) */
+        .attribute-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 2rem;
+            min-width: 400px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            color: white;
+        }
+
+        .attribute-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .attribute-modal-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .modal-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .modal-close-btn:hover {
+            opacity: 1;
+        }
+
+        .attribute-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .attribute-table th,
+        .attribute-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .attribute-table th {
+            background: rgba(255, 255, 255, 0.1);
+            font-weight: bold;
+            color: white;
+        }
+
+        .attribute-table td input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            padding: 0.5rem;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .attribute-table td input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgba(46, 96, 255, 0.3);
+        }
+
+        .attribute-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .add-row-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .add-row-btn:hover {
+            background: #4169ff;
+            transform: translateY(-1px);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            z-index: 1999;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <div class="navbar">
+        <div class="navbar-title">
+            <i class="fas fa-map-marked-alt"></i>
+            <span>WebGIS Professional - Sistema de Glebas</span>
+        </div>
+        <div class="navbar-user">
+            <span id="user-info">Administrador (admin_super)</span>
+            <button class="btn-glass" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt"></i> Atualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Container Principal -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h6><i class="fas fa-draw-polygon"></i> Ferramentas de Desenho</h6>
+                <p style="font-size: 0.85rem; opacity: 0.8;">Use os controles no mapa para desenhar polígonos de glebas.</p>
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn-glass" onclick="startPolygonDraw()">
+                        <i class="fas fa-draw-polygon"></i> Desenhar Gleba
+                    </button>
+                    <button class="btn-glass" onclick="loadExistingGlebas()">
+                        <i class="fas fa-sync-alt"></i> Recarregar Glebas
+                    </button>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h6><i class="fas fa-calculator"></i> Cálculos Automáticos</h6>
+                <div style="font-size: 0.85rem;">
+                    <p><strong>Área:</strong> Calculada automaticamente em m² e hectares</p>
+                    <p><strong>Perímetro:</strong> Calculado em metros</p>
+                    <p><strong>Testadas:</strong> Baseadas na geometria do polígono</p>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h6><i class="fas fa-layer-group"></i> Camadas Base</h6>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="layer-osm" checked>
+                    <label class="form-check-label" for="layer-osm">
+                        OpenStreetMap
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="layer-satellite">
+                    <label class="form-check-label" for="layer-satellite">
+                        Satélite (disponível em versão futura)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h6><i class="fas fa-download"></i> Exportação</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn-glass" onclick="exportAllGlebas()">
+                        <i class="fas fa-file-export"></i> Exportar Todas
+                    </button>
+                    <button class="btn-glass" onclick="generateReport()">
+                        <i class="fas fa-file-pdf"></i> Relatório PDF
+                    </button>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Container do Mapa -->
+        <main class="map-container">
+            <div id="map"></div>
+            
+            <!-- Toolbar de Navegação (estilo geojson.io) -->
+            <div id="navigation-toolbar" class="navigation-toolbar">
+                <div class="toolbar-group">
+                    <button id="zoom-in-btn" class="nav-btn" title="Zoom In">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button id="zoom-out-btn" class="nav-btn" title="Zoom Out">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+                
+                <div class="toolbar-group">
+                    <button id="pan-btn" class="nav-btn active" title="Pan Map">
+                        <i class="fas fa-arrows-alt"></i>
+                    </button>
+                    <button id="locate-btn" class="nav-btn" title="Locate Me">
+                        <i class="fas fa-location-arrow"></i>
+                    </button>
+                </div>
+                
+                <div class="toolbar-group">
+                    <button id="draw-point-btn" class="nav-btn" title="Draw Point">
+                        <i class="fas fa-map-pin"></i>
+                    </button>
+                    <button id="draw-line-btn" class="nav-btn" title="Draw Line">
+                        <i class="fas fa-minus" style="transform: rotate(45deg);"></i>
+                    </button>
+                    <button id="draw-polygon-btn" class="nav-btn" title="Draw Polygon">
+                        <i class="fas fa-draw-polygon"></i>
+                    </button>
+                </div>
+                
+                <div class="toolbar-group">
+                    <button id="edit-btn" class="nav-btn" title="Edit Features">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button id="delete-btn" class="nav-btn" title="Delete Features">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                
+                <div class="toolbar-group">
+                    <button id="rectangle-select-btn" class="nav-btn" title="Rectangle Select">
+                        <i class="fas fa-square"></i>
+                    </button>
+                    <button id="circle-select-btn" class="nav-btn" title="Circle Select">
+                        <i class="fas fa-circle"></i>
+                    </button>
+                </div>
+                
+                <div class="toolbar-group">
+                    <button id="settings-btn" class="nav-btn" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Painel de Edição à Direita -->
+        <aside id="edit-panel" class="edit-panel" style="display: none;">
+            <div class="edit-panel-header">
+                <h5><i class="fas fa-edit"></i> Editar Gleba</h5>
+                <button id="close-edit-panel" class="close-panel-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="edit-panel-content">
+                <form id="gleba-form">
+                    <!-- Informações da Gleba -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label for="no_gleba">Nº Gleba *</label>
+                            <input type="text" id="no_gleba" name="no_gleba" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="nome_gleba">Nome Gleba</label>
+                            <input type="text" id="nome_gleba" name="nome_gleba">
+                        </div>
+                        <div class="form-group">
+                            <label for="area">Área (m²)</label>
+                            <input type="text" id="area" name="area" readonly style="background: rgba(255,255,255,0.05);">
+                        </div>
+                        <div class="form-group">
+                            <label for="perimetro">Perímetro (m)</label>
+                            <input type="text" id="perimetro" name="perimetro" readonly style="background: rgba(255,255,255,0.05);">
+                        </div>
+                    </div>
+
+                    <!-- Informações do Proprietário -->
+                    <div class="form-section">
+                        <h6 class="section-title">Informações do Proprietário</h6>
+                        <div class="form-group">
+                            <label for="proprietario">Proprietário</label>
+                            <input type="text" id="proprietario" name="proprietario">
+                        </div>
+                        <div class="form-group">
+                            <label for="cpf">CPF</label>
+                            <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14">
+                        </div>
+                        <div class="form-group">
+                            <label for="rg">RG</label>
+                            <input type="text" id="rg" name="rg">
+                        </div>
+                    </div>
+
+                    <!-- Endereço -->
+                    <div class="form-section">
+                        <h6 class="section-title">Endereço</h6>
+                        <div class="form-group">
+                            <label for="rua">Rua</label>
+                            <input type="text" id="rua" name="rua">
+                        </div>
+                        <div class="form-group">
+                            <label for="bairro">Bairro</label>
+                            <input type="text" id="bairro" name="bairro">
+                        </div>
+                        <div class="form-group">
+                            <label for="quadra">Quadra</label>
+                            <input type="text" id="quadra" name="quadra">
+                        </div>
+                        <div class="form-group">
+                            <label for="cep">CEP</label>
+                            <input type="text" id="cep" name="cep" placeholder="00000-000" maxlength="9">
+                        </div>
+                        <div class="form-group">
+                            <label for="cidade">Cidade</label>
+                            <input type="text" id="cidade" name="cidade">
+                        </div>
+                        <div class="form-group">
+                            <label for="uf">UF</label>
+                            <select id="uf" name="uf">
+                                <option value="">Selecione...</option>
+                                <option value="AC">Acre</option>
+                                <option value="AL">Alagoas</option>
+                                <option value="AP">Amapá</option>
+                                <option value="AM">Amazonas</option>
+                                <option value="BA">Bahia</option>
+                                <option value="CE">Ceará</option>
+                                <option value="DF">Distrito Federal</option>
+                                <option value="ES">Espírito Santo</option>
+                                <option value="GO">Goiás</option>
+                                <option value="MA">Maranhão</option>
+                                <option value="MT">Mato Grosso</option>
+                                <option value="MS">Mato Grosso do Sul</option>
+                                <option value="MG">Minas Gerais</option>
+                                <option value="PA">Pará</option>
+                                <option value="PB">Paraíba</option>
+                                <option value="PR">Paraná</option>
+                                <option value="PE">Pernambuco</option>
+                                <option value="PI">Piauí</option>
+                                <option value="RJ">Rio de Janeiro</option>
+                                <option value="RN">Rio Grande do Norte</option>
+                                <option value="RS">Rio Grande do Sul</option>
+                                <option value="RO">Rondônia</option>
+                                <option value="RR">Roraima</option>
+                                <option value="SC">Santa Catarina</option>
+                                <option value="SP">São Paulo</option>
+                                <option value="SE">Sergipe</option>
+                                <option value="TO">Tocantins</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Testadas -->
+                    <div class="form-section">
+                        <h6 class="section-title">Testadas (m)</h6>
+                        <div class="form-group">
+                            <label for="testada_frente">Testada Frente</label>
+                            <input type="number" step="0.01" id="testada_frente" name="testada_frente">
+                        </div>
+                        <div class="form-group">
+                            <label for="testada_fundo">Testada Fundo</label>
+                            <input type="number" step="0.01" id="testada_fundo" name="testada_fundo">
+                        </div>
+                        <div class="form-group">
+                            <label for="testada_esquerda">Testada Esquerda</label>
+                            <input type="number" step="0.01" id="testada_esquerda" name="testada_esquerda">
+                        </div>
+                        <div class="form-group">
+                            <label for="testada_direita">Testada Direita</label>
+                            <input type="number" step="0.01" id="testada_direita" name="testada_direita">
+                        </div>
+                    </div>
+
+                    <!-- Confrontações -->
+                    <div class="form-section">
+                        <h6 class="section-title">Confrontações</h6>
+                        <div class="form-group">
+                            <label for="confrontacao_frente">Frente</label>
+                            <input type="text" id="confrontacao_frente" name="confrontacao_frente">
+                        </div>
+                        <div class="form-group">
+                            <label for="confrontacao_fundo">Fundo</label>
+                            <input type="text" id="confrontacao_fundo" name="confrontacao_fundo">
+                        </div>
+                        <div class="form-group">
+                            <label for="confrontacao_esquerda">Esquerda</label>
+                            <input type="text" id="confrontacao_esquerda" name="confrontacao_esquerda">
+                        </div>
+                        <div class="form-group">
+                            <label for="confrontacao_direita">Direita</label>
+                            <input type="text" id="confrontacao_direita" name="confrontacao_direita">
+                        </div>
+                    </div>
+
+                    <!-- Informações do Imóvel -->
+                    <div class="form-section">
+                        <h6 class="section-title">Informações do Imóvel</h6>
+                        <div class="form-group">
+                            <label for="valor_imovel">Valor do Imóvel (R$)</label>
+                            <input type="number" step="0.01" id="valor_imovel" name="valor_imovel">
+                        </div>
+                        <div class="form-group">
+                            <label for="matricula">Matrícula</label>
+                            <input type="text" id="matricula" name="matricula">
+                        </div>
+                        <div class="form-group">
+                            <label for="inscricao_municipal">Inscrição Municipal</label>
+                            <input type="text" id="inscricao_municipal" name="inscricao_municipal">
+                        </div>
+                    </div>
+
+                    <!-- Observações -->
+                    <div class="form-section">
+                        <h6 class="section-title">Observações</h6>
+                        <div class="form-group">
+                            <label for="observacoes">Observações</label>
+                            <textarea id="observacoes" name="observacoes" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Botões de Ação -->
+                    <div class="form-section">
+                        <div class="d-grid gap-2">
+                            <button type="button" id="save-gleba-btn" class="btn-glass btn-primary-glass">
+                                <i class="fas fa-save"></i> Salvar Gleba
+                            </button>
+                            <button type="button" class="btn-glass" onclick="closeGlebaEditPanel()">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </aside>
+    </div>
+    
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <span id="coordinates">Coordenadas: --</span>
+        <span class="ms-3" id="glebas-count">Glebas: 0</span>
+        <span class="ms-3" id="connection-status">Status: <span class="text-success">Conectado</span></span>
+    </div>
+
+    <!-- Modal de Edição de Atributos (estilo geojson.io) -->
+    <div id="attribute-modal-overlay" class="modal-overlay" style="display: none;"></div>
+    <div id="attribute-modal" class="attribute-modal" style="display: none;">
+        <div class="attribute-modal-header">
+            <h4 class="attribute-modal-title">Properties</h4>
+            <button id="close-attribute-modal" class="modal-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="attribute-modal-content">
+            <table class="attribute-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Property</th>
+                        <th style="width: 60%;">Value</th>
+                    </tr>
+                </thead>
+                <tbody id="attribute-table-body">
+                    <!-- Linhas serão adicionadas dinamicamente -->
+                </tbody>
+            </table>
+            
+            <div class="attribute-actions">
+                <button id="add-row-btn" class="add-row-btn">
+                    <i class="fas fa-plus"></i> Add row
+                </button>
+                <button id="add-simplestyle-btn" class="btn-glass">
+                    Add simplestyle properties
+                </button>
+            </div>
+            
+            <div class="attribute-actions">
+                <button id="save-attributes-btn" class="btn-glass btn-primary-glass">
+                    <i class="fas fa-save"></i> Save
+                </button>
+                <button id="cancel-attributes-btn" class="btn-glass">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button id="delete-feature-btn" class="btn-glass" style="background: #dc3545; border-color: #dc3545;">
+                    <i class="fas fa-trash"></i> Delete feature
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="/static/glebas.js"></script>
+    
+    <script>
+        // Inicializar mapa
+        console.log('Inicializando WebGIS Professional - Sistema de Glebas...');
+        
+        // Configuração do mapa
+        window.map = L.map('map').setView([-2.5, -44.3], 10); // Maranhão
+        
+        // Camada base
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(window.map);
+        
+        // Atualizar coordenadas do mouse
+        window.map.on('mousemove', function(e) {
+            const coords = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+            document.getElementById('coordinates').textContent = `Coordenadas: ${coords}`;
+        });
+        
+        // Variáveis globais para ferramentas
+        let currentTool = 'pan';
+        let drawControl = null;
+        let editControl = null;
+        let currentFeature = null;
+        let drawnItems = new L.FeatureGroup();
+        
+        // Adicionar FeatureGroup ao mapa
+        window.map.addLayer(drawnItems);
+        
+        // Configurar controles de desenho
+        drawControl = new L.Control.Draw({
+            position: 'topright',
+            draw: {
+                polyline: {
+                    shapeOptions: {
+                        color: '#2e60ff',
+                        weight: 3
+                    }
+                },
+                polygon: {
+                    allowIntersection: false,
+                    shapeOptions: {
+                        color: '#2e60ff',
+                        weight: 3,
+                        fillColor: '#2e60ff',
+                        fillOpacity: 0.3
+                    }
+                },
+                circle: false,
+                rectangle: {
+                    shapeOptions: {
+                        color: '#2e60ff',
+                        weight: 3,
+                        fillColor: '#2e60ff',
+                        fillOpacity: 0.3
+                    }
+                },
+                marker: {
+                    icon: new L.Icon({
+                        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+                        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }
+            },
+            edit: {
+                featureGroup: drawnItems,
+                remove: true
+            }
+        });
+        
+        window.map.addControl(drawControl);
+        
+        // Event listeners para desenho
+        window.map.on('draw:created', function (e) {
+            const layer = e.layer;
+            drawnItems.addLayer(layer);
+            
+            // Adicionar evento de clique para edição de atributos
+            layer.on('click', function() {
+                currentFeature = layer;
+                openAttributeModal(layer);
+            });
+            
+            // Auto-abrir modal de atributos para novos elementos
+            currentFeature = layer;
+            openAttributeModal(layer);
+        });
+        
+        // Funcionalidades da toolbar
+        function setActiveTool(tool) {
+            // Remover classe active de todos os botões
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Adicionar classe active ao botão atual
+            document.getElementById(tool + '-btn').classList.add('active');
+            
+            currentTool = tool;
+            
+            // Desabilitar controles de desenho quando não estiver desenhando
+            if (tool === 'pan') {
+                window.map.dragging.enable();
+                window.map.doubleClickZoom.enable();
+            }
+        }
+        
+        // Event listeners para toolbar
+        document.getElementById('zoom-in-btn').addEventListener('click', function() {
+            window.map.zoomIn();
+        });
+        
+        document.getElementById('zoom-out-btn').addEventListener('click', function() {
+            window.map.zoomOut();
+        });
+        
+        document.getElementById('pan-btn').addEventListener('click', function() {
+            setActiveTool('pan');
+        });
+        
+        document.getElementById('locate-btn').addEventListener('click', function() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    window.map.setView([lat, lng], 15);
+                    
+                    L.marker([lat, lng]).addTo(window.map)
+                        .bindPopup('Você está aqui!')
+                        .openPopup();
+                });
+            } else {
+                alert('Geolocalização não suportada pelo navegador');
+            }
+        });
+        
+        document.getElementById('draw-point-btn').addEventListener('click', function() {
+            setActiveTool('draw-point');
+            new L.Draw.Marker(window.map, drawControl.options.draw.marker).enable();
+        });
+        
+        document.getElementById('draw-line-btn').addEventListener('click', function() {
+            setActiveTool('draw-line');
+            new L.Draw.Polyline(window.map, drawControl.options.draw.polyline).enable();
+        });
+        
+        document.getElementById('draw-polygon-btn').addEventListener('click', function() {
+            setActiveTool('draw-polygon');
+            new L.Draw.Polygon(window.map, drawControl.options.draw.polygon).enable();
+        });
+        
+        document.getElementById('edit-btn').addEventListener('click', function() {
+            setActiveTool('edit');
+            new L.EditToolbar.Edit(window.map, {
+                featureGroup: drawnItems
+            }).enable();
+        });
+        
+        document.getElementById('delete-btn').addEventListener('click', function() {
+            setActiveTool('delete');
+            new L.EditToolbar.Delete(window.map, {
+                featureGroup: drawnItems
+            }).enable();
+        });
+        
+        document.getElementById('rectangle-select-btn').addEventListener('click', function() {
+            setActiveTool('rectangle-select');
+            new L.Draw.Rectangle(window.map, drawControl.options.draw.rectangle).enable();
+        });
+        
+        document.getElementById('settings-btn').addEventListener('click', function() {
+            alert('Configurações em desenvolvimento');
+        });
+        
+        // Funções do modal de atributos
+        function openAttributeModal(layer) {
+            currentFeature = layer;
+            
+            // Obter propriedades existentes
+            const properties = layer.feature ? layer.feature.properties || {} : {};
+            
+            // Limpar tabela
+            const tbody = document.getElementById('attribute-table-body');
+            tbody.innerHTML = '';
+            
+            // Adicionar propriedades existentes
+            Object.keys(properties).forEach(key => {
+                addAttributeRow(key, properties[key]);
+            });
+            
+            // Se não há propriedades, adicionar uma linha vazia
+            if (Object.keys(properties).length === 0) {
+                addAttributeRow('', '');
+            }
+            
+            // Mostrar modal
+            document.getElementById('attribute-modal-overlay').style.display = 'block';
+            document.getElementById('attribute-modal').style.display = 'block';
+        }
+        
+        function addAttributeRow(key = '', value = '') {
+            const tbody = document.getElementById('attribute-table-body');
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td><input type="text" class="property-key" value="${key}" placeholder="property name"></td>
+                <td><input type="text" class="property-value" value="${value}" placeholder="property value"></td>
+            `;
+            
+            tbody.appendChild(row);
+        }
+        
+        function closeAttributeModal() {
+            document.getElementById('attribute-modal-overlay').style.display = 'none';
+            document.getElementById('attribute-modal').style.display = 'none';
+            currentFeature = null;
+        }
+        
+        function saveAttributes() {
+            if (!currentFeature) return;
+            
+            const properties = {};
+            const rows = document.querySelectorAll('#attribute-table-body tr');
+            
+            rows.forEach(row => {
+                const keyInput = row.querySelector('.property-key');
+                const valueInput = row.querySelector('.property-value');
+                
+                if (keyInput.value.trim()) {
+                    properties[keyInput.value.trim()] = valueInput.value;
+                }
+            });
+            
+            // Criar ou atualizar feature
+            if (!currentFeature.feature) {
+                currentFeature.feature = {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: currentFeature.toGeoJSON().geometry
+                };
+            }
+            
+            currentFeature.feature.properties = properties;
+            
+            // Atualizar popup
+            updateFeaturePopup(currentFeature);
+            
+            closeAttributeModal();
+        }
+        
+        function updateFeaturePopup(layer) {
+            const properties = layer.feature ? layer.feature.properties || {} : {};
+            
+            let popupContent = '<div class="feature-popup">';
+            
+            if (Object.keys(properties).length > 0) {
+                Object.keys(properties).forEach(key => {
+                    popupContent += `<p><strong>${key}:</strong> ${properties[key]}</p>`;
+                });
+            } else {
+                popupContent += '<p>Nenhuma propriedade definida</p>';
+            }
+            
+            popupContent += '<div class="popup-actions">';
+            popupContent += '<button class="btn btn-sm btn-primary" onclick="openAttributeModal(currentFeature)">Editar</button>';
+            popupContent += '</div>';
+            popupContent += '</div>';
+            
+            layer.bindPopup(popupContent);
+        }
+        
+        // Event listeners do modal
+        document.getElementById('close-attribute-modal').addEventListener('click', closeAttributeModal);
+        document.getElementById('attribute-modal-overlay').addEventListener('click', closeAttributeModal);
+        document.getElementById('cancel-attributes-btn').addEventListener('click', closeAttributeModal);
+        document.getElementById('save-attributes-btn').addEventListener('click', saveAttributes);
+        
+        document.getElementById('add-row-btn').addEventListener('click', function() {
+            addAttributeRow();
+        });
+        
+        document.getElementById('add-simplestyle-btn').addEventListener('click', function() {
+            addAttributeRow('stroke', '#2e60ff');
+            addAttributeRow('stroke-width', '3');
+            addAttributeRow('fill', '#2e60ff');
+            addAttributeRow('fill-opacity', '0.3');
+        });
+        
+        document.getElementById('delete-feature-btn').addEventListener('click', function() {
+            if (currentFeature && confirm('Tem certeza que deseja deletar este elemento?')) {
+                drawnItems.removeLayer(currentFeature);
+                closeAttributeModal();
+            }
+        });
+        
+        // Função para iniciar desenho de polígono
+        function startPolygonDraw() {
+            document.getElementById('draw-polygon-btn').click();
+        }
+        
+        // Exportar todas as glebas
+        async function exportAllGlebas() {
+            try {
+                const response = await fetch('/api/glebas');
+                const data = await response.json();
+                
+                if (response.ok && data.glebas && data.glebas.length > 0) {
+                    // Criar FeatureCollection
+                    const featureCollection = {
+                        type: 'FeatureCollection',
+                        features: data.glebas.map(gleba => ({
+                            type: 'Feature',
+                            properties: {
+                                no_gleba: gleba.no_gleba,
+                                nome_gleba: gleba.nome_gleba,
+                                area: gleba.area,
+                                perimetro: gleba.perimetro,
+                                proprietario: gleba.proprietario,
+                                cpf: gleba.cpf,
+                                created_at: gleba.created_at
+                            },
+                            geometry: gleba.geometry
+                        }))
+                    };
+                    
+                    // Download
+                    const blob = new Blob([JSON.stringify(featureCollection, null, 2)], {
+                        type: 'application/json'
+                    });
+                    
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `glebas_export_${new Date().toISOString().split('T')[0]}.geojson`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    alert(`${data.glebas.length} glebas exportadas com sucesso!`);
+                } else {
+                    alert('Nenhuma gleba encontrada para exportar');
+                }
+                
+            } catch (error) {
+                console.error('Erro exportando glebas:', error);
+                alert('Erro ao exportar glebas');
+            }
+        }
+        
+        // Gerar relatório PDF (funcionalidade futura)
+        function generateReport() {
+            alert('Funcionalidade de relatório PDF será implementada em versão futura');
+        }
+        
+        // Atualizar contador de glebas
+        async function updateGlebasCount() {
+            try {
+                const response = await fetch('/api/glebas');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('glebas-count').textContent = `Glebas: ${data.total}`;
+                }
+            } catch (error) {
+                console.error('Erro atualizando contador:', error);
+            }
+        }
+        
+        // Atualizar contador periodicamente
+        setInterval(updateGlebasCount, 30000); // A cada 30 segundos
+        
+        // Testar conectividade
+        async function testConnection() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    document.getElementById('connection-status').innerHTML = 'Status: <span class="text-success">Conectado</span>';
+                } else {
+                    throw new Error('Servidor não saudável');
+                }
+            } catch (error) {
+                console.error('Erro de conectividade:', error);
+                document.getElementById('connection-status').innerHTML = 'Status: <span class="text-danger">Desconectado</span>';
+            }
+        }
+        
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('WebGIS Professional - Sistema de Glebas carregado!');
+            testConnection();
+            updateGlebasCount();
+        });
+    </script>
+</body>
+</html>

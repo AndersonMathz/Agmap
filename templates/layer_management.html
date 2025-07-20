@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS Professional - Gerenciamento de Camadas</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- JSTree -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css">
+    
+    <style>
+        :root {
+            --primary-blue: #2e60ff;
+            --primary-dark: #12357c;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --sidebar-width: 350px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .navbar {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            color: white;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--glass-border);
+            color: white;
+            overflow-y: auto;
+        }
+
+        .content-area {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+            color: white;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn-glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary-glass {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+            border: none;
+        }
+
+        .layer-tree {
+            background: transparent;
+            color: white;
+        }
+
+        .layer-tree .jstree-anchor {
+            color: white !important;
+        }
+
+        .layer-tree .jstree-hovered {
+            background: rgba(255, 255, 255, 0.1) !important;
+            box-shadow: none !important;
+        }
+
+        .layer-tree .jstree-clicked {
+            background: rgba(46, 96, 255, 0.3) !important;
+            box-shadow: none !important;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem;
+            margin: 0.2rem 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .layer-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .layer-info {
+            flex: 1;
+        }
+
+        .layer-actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .layer-actions .btn {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.8rem;
+        }
+
+        .layer-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-active { background-color: #28a745; }
+        .status-hidden { background-color: #ffc107; }
+        .status-archived { background-color: #6c757d; }
+        .status-deleted { background-color: #dc3545; }
+
+        .layer-type-icon {
+            margin-right: 0.5rem;
+            width: 16px;
+            text-align: center;
+        }
+
+        .form-control, .form-select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
+            color: white;
+        }
+
+        .form-control:focus, .form-select:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--primary-blue);
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(46, 96, 255, 0.25);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .modal-content {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            color: white;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .table-dark {
+            background: transparent;
+        }
+
+        .table-dark td, .table-dark th {
+            border-color: var(--glass-border);
+        }
+
+        .progress {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .toast {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: white;
+        }
+
+        .layer-visibility-toggle {
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .layer-visibility-toggle.hidden {
+            opacity: 0.3;
+        }
+
+        .layer-tree-container {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .layer-details-panel {
+            border-left: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .statistics-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-blue);
+        }
+
+        .context-menu {
+            position: absolute;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            padding: 0.5rem 0;
+            min-width: 150px;
+            z-index: 9999;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .context-menu-item {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .context-menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .version-badge {
+            background: var(--primary-blue);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+            <div class="navbar-brand">
+                <i class="fas fa-layer-group"></i>
+                WebGIS Professional - Gerenciamento de Camadas
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span id="project-info" class="text-light">Projeto: Carregando...</span>
+                <div class="btn-group">
+                    <button class="btn btn-glass btn-sm" onclick="refreshLayers()">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                    <button class="btn btn-primary-glass btn-sm" onclick="showCreateLayerModal()">
+                        <i class="fas fa-plus"></i> Nova Camada
+                    </button>
+                    <button class="btn btn-glass btn-sm" onclick="showCreateGroupModal()">
+                        <i class="fas fa-folder-plus"></i> Novo Grupo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar - Layer Tree -->
+        <div class="sidebar">
+            <div class="p-3">
+                <!-- Search and Filters -->
+                <div class="glass-card">
+                    <h6><i class="fas fa-filter"></i> Filtros</h6>
+                    <div class="mb-2">
+                        <input type="text" id="layer-search" class="form-control form-control-sm" 
+                               placeholder="Buscar camadas..." onkeyup="filterLayers()">
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <select id="filter-type" class="form-select form-select-sm" onchange="filterLayers()">
+                                <option value="">Todos os tipos</option>
+                                <option value="vector">Vetor</option>
+                                <option value="raster">Raster</option>
+                                <option value="wms">WMS</option>
+                                <option value="wfs">WFS</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <select id="filter-status" class="form-select form-select-sm" onchange="filterLayers()">
+                                <option value="active">Ativas</option>
+                                <option value="hidden">Ocultas</option>
+                                <option value="archived">Arquivadas</option>
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Layer Tree -->
+                <div class="glass-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6><i class="fas fa-sitemap"></i> Estrutura de Camadas</h6>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-glass btn-sm" onclick="expandAllGroups()" title="Expandir Tudo">
+                                <i class="fas fa-expand-arrows-alt"></i>
+                            </button>
+                            <button class="btn btn-glass btn-sm" onclick="collapseAllGroups()" title="Recolher Tudo">
+                                <i class="fas fa-compress-arrows-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="layer-tree-container">
+                        <div id="layer-tree" class="layer-tree"></div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="glass-card">
+                    <h6><i class="fas fa-chart-bar"></i> Estatísticas Rápidas</h6>
+                    <div class="statistics-card">
+                        <div class="d-flex justify-content-between">
+                            <span>Camadas Ativas:</span>
+                            <span class="stat-number" id="stat-active-layers">0</span>
+                        </div>
+                    </div>
+                    <div class="statistics-card">
+                        <div class="d-flex justify-content-between">
+                            <span>Total de Features:</span>
+                            <span class="stat-number" id="stat-total-features">0</span>
+                        </div>
+                    </div>
+                    <div class="statistics-card">
+                        <div class="d-flex justify-content-between">
+                            <span>Grupos:</span>
+                            <span class="stat-number" id="stat-total-groups">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Layer Details Panel -->
+            <div id="layer-details-panel" class="h-100 p-3" style="display: none;">
+                <div class="glass-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 id="layer-details-title">
+                            <i class="fas fa-layer-group"></i> Detalhes da Camada
+                        </h5>
+                        <button class="btn btn-glass btn-sm" onclick="closeLayers Details()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Layer Info Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="layer-tabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#tab-general">
+                                <i class="fas fa-info-circle"></i> Geral
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#tab-style">
+                                <i class="fas fa-palette"></i> Estilo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#tab-data">
+                                <i class="fas fa-database"></i> Dados
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#tab-permissions">
+                                <i class="fas fa-shield-alt"></i> Permissões
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#tab-versions">
+                                <i class="fas fa-history"></i> Versões
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- General Tab -->
+                        <div id="tab-general" class="tab-pane fade show active">
+                            <form id="layer-general-form">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Nome da Camada</label>
+                                            <input type="text" class="form-control" id="layer-name" readonly>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Nome de Exibição</label>
+                                            <input type="text" class="form-control" id="layer-display-name">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Tipo</label>
+                                            <select class="form-select" id="layer-type">
+                                                <option value="vector">Vetor</option>
+                                                <option value="raster">Raster</option>
+                                                <option value="wms">WMS</option>
+                                                <option value="wfs">WFS</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Tipo de Geometria</label>
+                                            <select class="form-select" id="layer-geometry-type">
+                                                <option value="Point">Ponto</option>
+                                                <option value="LineString">Linha</option>
+                                                <option value="Polygon">Polígono</option>
+                                                <option value="MultiPoint">Multi-Ponto</option>
+                                                <option value="MultiLineString">Multi-Linha</option>
+                                                <option value="MultiPolygon">Multi-Polígono</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Grupo</label>
+                                            <select class="form-select" id="layer-group">
+                                                <option value="">Sem grupo</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Status</label>
+                                            <select class="form-select" id="layer-status">
+                                                <option value="active">Ativo</option>
+                                                <option value="hidden">Oculto</option>
+                                                <option value="archived">Arquivado</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Ordem de Exibição</label>
+                                            <input type="number" class="form-control" id="layer-display-order" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="layer-visible">
+                                                <label class="form-check-label" for="layer-visible">
+                                                    Visível
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="layer-selectable">
+                                                <label class="form-check-label" for="layer-selectable">
+                                                    Selecionável
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="layer-editable">
+                                                <label class="form-check-label" for="layer-editable">
+                                                    Editável
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Descrição</label>
+                                    <textarea class="form-control" id="layer-description" rows="3"></textarea>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary-glass" onclick="saveLayerChanges()">
+                                        <i class="fas fa-save"></i> Salvar Alterações
+                                    </button>
+                                    <button type="button" class="btn btn-glass" onclick="resetLayerForm()">
+                                        <i class="fas fa-undo"></i> Resetar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Style Tab -->
+                        <div id="tab-style" class="tab-pane fade">
+                            <div class="mb-3">
+                                <label class="form-label">Opacidade</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="range" class="form-range" id="layer-opacity" min="0" max="1" step="0.1" value="1">
+                                    <span id="opacity-value">100%</span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Zoom Mínimo</label>
+                                        <input type="number" class="form-control" id="layer-min-zoom" min="0" max="20">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Zoom Máximo</label>
+                                        <input type="number" class="form-control" id="layer-max-zoom" min="0" max="20">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Estilo JSON</label>
+                                <textarea class="form-control" id="layer-style-json" rows="8" placeholder='{"color": "#ff0000", "weight": 2}'></textarea>
+                            </div>
+                            <button type="button" class="btn btn-primary-glass" onclick="updateLayerStyle()">
+                                <i class="fas fa-palette"></i> Aplicar Estilo
+                            </button>
+                        </div>
+
+                        <!-- Data Tab -->
+                        <div id="tab-data" class="tab-pane fade">
+                            <div id="layer-statistics">
+                                <!-- Statistics will be loaded here -->
+                            </div>
+                            
+                            <div class="mt-3">
+                                <h6>Ações de Dados</h6>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-glass btn-sm" onclick="exportLayerData()">
+                                        <i class="fas fa-download"></i> Exportar Dados
+                                    </button>
+                                    <button class="btn btn-glass btn-sm" onclick="validateLayerData()">
+                                        <i class="fas fa-check-circle"></i> Validar Dados
+                                    </button>
+                                    <button class="btn btn-glass btn-sm" onclick="refreshLayerData()">
+                                        <i class="fas fa-sync-alt"></i> Atualizar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Permissions Tab -->
+                        <div id="tab-permissions" class="tab-pane fade">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="layer-public">
+                                    <label class="form-check-label" for="layer-public">
+                                        Camada Pública
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="layer-deletable">
+                                    <label class="form-check-label" for="layer-deletable">
+                                        Pode ser Deletada
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Permissões de Edição (JSON)</label>
+                                <textarea class="form-control" id="layer-edit-permissions" rows="4" 
+                                          placeholder='{"canEdit": ["admin"], "canDelete": ["admin", "owner"]}'></textarea>
+                            </div>
+                            
+                            <button type="button" class="btn btn-primary-glass" onclick="updateLayerPermissions()">
+                                <i class="fas fa-shield-alt"></i> Salvar Permissões
+                            </button>
+                        </div>
+
+                        <!-- Versions Tab -->
+                        <div id="tab-versions" class="tab-pane fade">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6>Histórico de Versões</h6>
+                                <button class="btn btn-primary-glass btn-sm" onclick="createLayerVersion()">
+                                    <i class="fas fa-plus"></i> Nova Versão
+                                </button>
+                            </div>
+                            
+                            <div id="layer-versions-list">
+                                <!-- Versions will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Welcome Panel -->
+            <div id="welcome-panel" class="h-100 d-flex align-items-center justify-content-center">
+                <div class="text-center">
+                    <i class="fas fa-layer-group fa-5x mb-4" style="color: rgba(255,255,255,0.3);"></i>
+                    <h3 class="text-white-50">Selecione uma camada para ver os detalhes</h3>
+                    <p class="text-white-50">Use a árvore de camadas à esquerda para navegar e gerenciar suas camadas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Layer Modal -->
+    <div class="modal fade" id="createLayerModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus"></i> Nova Camada
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-layer-form">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Nome da Camada *</label>
+                                    <input type="text" class="form-control" id="new-layer-name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nome de Exibição *</label>
+                                    <input type="text" class="form-control" id="new-layer-display-name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tipo *</label>
+                                    <select class="form-select" id="new-layer-type" required>
+                                        <option value="vector">Vetor</option>
+                                        <option value="raster">Raster</option>
+                                        <option value="wms">WMS</option>
+                                        <option value="wfs">WFS</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Grupo</label>
+                                    <select class="form-select" id="new-layer-group">
+                                        <option value="">Sem grupo</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tipo de Geometria</label>
+                                    <select class="form-select" id="new-layer-geometry-type">
+                                        <option value="Polygon">Polígono</option>
+                                        <option value="Point">Ponto</option>
+                                        <option value="LineString">Linha</option>
+                                        <option value="MultiPolygon">Multi-Polígono</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Ordem de Exibição</label>
+                                    <input type="number" class="form-control" id="new-layer-display-order" value="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descrição</label>
+                            <textarea class="form-control" id="new-layer-description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary-glass" onclick="createLayer()">
+                        <i class="fas fa-plus"></i> Criar Camada
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Group Modal -->
+    <div class="modal fade" id="createGroupModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-folder-plus"></i> Novo Grupo
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-group-form">
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Grupo *</label>
+                            <input type="text" class="form-control" id="new-group-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Grupo Pai</label>
+                            <select class="form-select" id="new-group-parent">
+                                <option value="">Nenhum (raiz)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descrição</label>
+                            <textarea class="form-control" id="new-group-description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Ordem de Exibição</label>
+                            <input type="number" class="form-control" id="new-group-display-order" value="0">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary-glass" onclick="createGroup()">
+                        <i class="fas fa-folder-plus"></i> Criar Grupo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" onclick="editSelectedItem()">
+            <i class="fas fa-edit"></i> Editar
+        </div>
+        <div class="context-menu-item" onclick="duplicateSelectedItem()">
+            <i class="fas fa-copy"></i> Duplicar
+        </div>
+        <div class="context-menu-item" onclick="exportSelectedItem()">
+            <i class="fas fa-download"></i> Exportar
+        </div>
+        <hr class="my-1">
+        <div class="context-menu-item text-danger" onclick="deleteSelectedItem()">
+            <i class="fas fa-trash"></i> Deletar
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+    <script src="/static/layer_management.js"></script>
+</body>
+</html>

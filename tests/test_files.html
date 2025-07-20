@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Arquivos KML - WebGIS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .loading { background-color: #fff3cd; color: #856404; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Teste de Arquivos KML - WebGIS</h1>
+    
+    <div id="results">
+        <div class="test-result loading">
+            <strong>⏳</strong> Clique em "Testar Arquivos" para verificar se os arquivos KML estão acessíveis.
+        </div>
+    </div>
+    
+    <div style="margin: 20px 0;">
+        <button class="btn-primary" onclick="testFiles()">🧪 Testar Arquivos KML</button>
+        <button class="btn-secondary" onclick="testToGeoJSONLibrary()">📚 Testar Biblioteca toGeoJSON</button>
+        <button class="btn-secondary" onclick="window.location.href='index.html'">🏠 Voltar ao WebGIS</button>
+    </div>
+    
+    <div id="file-list">
+        <h3>📁 Arquivos KML que serão testados:</h3>
+        <ul>
+            <li>WEBGIS_ANDERSON/building.kml</li>
+            <li>WEBGIS_ANDERSON/roads.kml</li>
+            <li>WEBGIS_ANDERSON/places.kml</li>
+            <li>WEBGIS_ANDERSON/ma_setores_2021.kml</li>
+        </ul>
+    </div>
+
+    <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
+    <script>
+        const filesToTest = [
+            'WEBGIS_ANDERSON/building.kml',
+            'WEBGIS_ANDERSON/roads.kml',
+            'WEBGIS_ANDERSON/places.kml',
+            'WEBGIS_ANDERSON/ma_setores_2021.kml'
+        ];
+
+        function addResult(message, type) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testFiles() {
+            clearResults();
+            addResult('<strong>🚀</strong> Iniciando testes de arquivos KML...', 'loading');
+
+            // Testar biblioteca toGeoJSON
+            if (typeof toGeoJSON === 'undefined') {
+                addResult('<strong>❌</strong> Biblioteca toGeoJSON não está carregada!', 'error');
+                return;
+            } else {
+                addResult('<strong>✅</strong> Biblioteca toGeoJSON carregada com sucesso', 'success');
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const file of filesToTest) {
+                try {
+                    addResult(`<strong>⏳</strong> Testando: ${file}`, 'loading');
+                    
+                    // Carregar o arquivo KML
+                    const response = await fetch(file);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const kmlText = await response.text();
+                    addResult(`<strong>📁</strong> KML carregado, tamanho: ${kmlText.length} caracteres`, 'loading');
+                    
+                    // Converter KML para GeoJSON
+                    const parser = new DOMParser();
+                    const kmlDoc = parser.parseFromString(kmlText, 'text/xml');
+                    
+                    // Verificar se há erros de parsing
+                    const parseErrors = kmlDoc.getElementsByTagName('parsererror');
+                    if (parseErrors.length > 0) {
+                        throw new Error('Erro ao fazer parse do arquivo KML');
+                    }
+                    
+                    // Converter para GeoJSON
+                    const geojson = toGeoJSON.kml(kmlDoc);
+                    
+                    if (geojson && geojson.features && geojson.features.length > 0) {
+                        addResult(`<strong>✅</strong> ${file} - ${geojson.features.length} features carregadas`, 'success');
+                        successCount++;
+                    } else {
+                        addResult(`<strong>⚠️</strong> ${file} - Arquivo vazio ou sem features`, 'error');
+                        errorCount++;
+                    }
+                } catch (error) {
+                    addResult(`<strong>❌</strong> ${file} - Erro: ${error.message}`, 'error');
+                    errorCount++;
+                }
+            }
+
+            // Resumo final
+            addResult(`<strong>📊</strong> Resumo: ${successCount} sucessos, ${errorCount} erros`, 
+                     errorCount === 0 ? 'success' : 'error');
+        }
+
+        function testToGeoJSONLibrary() {
+            clearResults();
+            
+            if (typeof toGeoJSON === 'undefined') {
+                addResult('<strong>❌</strong> Biblioteca toGeoJSON não está disponível', 'error');
+            } else {
+                addResult('<strong>✅</strong> Biblioteca toGeoJSON está carregada e disponível', 'success');
+                addResult(`<strong>ℹ️</strong> Funções disponíveis: ${Object.keys(toGeoJSON).join(', ')}`, 'loading');
+            }
+        }
+    </script>
+</body>
+</html> 

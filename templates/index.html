@@ -1,0 +1,1063 @@
+{% extends "base.html" %}
+
+{% block title %}WebGIS - Visualização de Dados Geográficos{% endblock %}
+
+{% block extra_css %}
+<!-- CSS principal do sistema -->
+<link rel="stylesheet" href="{{ url_for('static_files', filename='styles.css') }}?v={{ range(90000, 99999) | random }}">
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<!-- Leaflet Draw CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<div class="navbar">
+    <div class="navbar-title">
+        <i class="fas fa-map-marked-alt"></i>
+        <span>WebGIS</span>
+    </div>
+    <div class="navbar-user">
+        <span id="user-info">Bem-vindo</span>
+        <button id="logout-btn" class="btn-logout">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Sair</span>
+        </button>
+    </div>
+</div>
+
+<!-- Container Principal -->
+<div class="main-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h4><i class="fas fa-map-marked-alt"></i> WebGIS</h4>
+            <p>Sistema de Informações Geográficas</p>
+        </div>
+        
+        <!-- Camadas de Dados -->
+        <div class="sidebar-section">
+            <h6><i class="fas fa-layer-group"></i> Camadas</h6>
+            <div id="layer-controls">
+                <!-- Camadas serão inseridas dinamicamente pelo JavaScript -->
+            </div>
+            <div class="layer-management-actions" style="margin-top: 16px; text-align: center;">
+                <button onclick="window.GeoJsonTools.clearAllFeatures()" class="btn-clear-all" style="
+                    background: linear-gradient(135deg, #ef4444, #dc2626);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    margin: 0 auto;
+                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    <i class="fas fa-trash"></i> Limpar Todas
+                </button>
+            </div>
+        </div>
+        
+        <!-- Importação e Exportação -->
+        <div class="sidebar-section">
+            <h6><i class="fas fa-exchange-alt"></i> Importação/Exportação</h6>
+            <div class="import-export-controls">
+                <button onclick="importFile()" class="btn-import">
+                    <i class="fas fa-file-upload"></i>
+                    <span>Importar</span>
+                </button>
+                <div class="dropdown">
+                    <button class="btn-export dropdown-toggle">
+                        <i class="fas fa-file-download"></i>
+                        <span>Exportar</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="exportData('geojson')">GeoJSON</a>
+                        <a href="#" onclick="exportData('kml')">KML</a>
+                        <a href="#" onclick="exportData('shapefile')">Shapefile</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controles Administrativos -->
+        <div id="admin-controls" class="sidebar-section admin-controls" style="display: none;">
+            <h6><i class="fas fa-user-shield"></i> Controles Administrativos</h6>
+            <!-- Controles admin serão inseridos dinamicamente -->
+        </div>
+    </aside>
+    
+    <!-- Container do Mapa -->
+    <main class="map-container">
+        <div id="map"></div>
+        
+        <!-- Barra de Ferramentas Vertical Estilo geojson.io -->
+        <div class="geojson-toolbar">
+            <!-- Zoom Controls -->
+            <button id="zoom-in" class="geojson-btn" title="Zoom In">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button id="zoom-out" class="geojson-btn" title="Zoom Out">
+                <i class="fas fa-minus"></i>
+            </button>
+            
+            <!-- Navigation -->
+            <button id="pan-mode" class="geojson-btn active" title="Pan/Navigate" data-tool="pan">
+                <i class="fas fa-hand-paper"></i>
+            </button>
+            
+            <!-- Drawing Tools -->
+            <button id="draw-point" class="geojson-btn" data-tool="marker" title="Add Point">
+                <i class="fas fa-map-marker-alt"></i>
+            </button>
+            <button id="draw-line" class="geojson-btn" data-tool="polyline" title="Draw Line">
+                <i class="fas fa-project-diagram"></i>
+            </button>
+            <button id="draw-polygon" class="geojson-btn" data-tool="polygon" title="Draw Polygon">
+                <i class="fas fa-draw-polygon"></i>
+            </button>
+            <button id="draw-rectangle" class="geojson-btn" data-tool="rectangle" title="Draw Rectangle">
+                <i class="fas fa-square"></i>
+            </button>
+            <button id="draw-circle" class="geojson-btn" data-tool="circle" title="Draw Circle">
+                <i class="fas fa-circle"></i>
+            </button>
+            
+            <!-- Edit Tools -->
+            <button id="edit-mode" class="geojson-btn" title="Edit Features">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button id="delete-mode" class="geojson-btn" title="Delete Features">
+                <i class="fas fa-trash"></i>
+            </button>
+            
+            <!-- Utility -->
+            <button id="locate-me" class="geojson-btn" title="Find My Location">
+                <i class="fas fa-crosshairs"></i>
+            </button>
+            <button id="table-view" class="geojson-btn" title="Table View">
+                <i class="fas fa-table"></i>
+            </button>
+            <button id="save-data" class="geojson-btn" title="Save Data">
+                <i class="fas fa-save"></i>
+            </button>
+            <button id="toggle-basemap" class="geojson-btn" title="Change Base Map">
+                <i class="fas fa-map"></i>
+            </button>
+        </div>
+    </main>
+    
+    <!-- Painel de Edição à Direita -->
+    <aside id="edit-panel" class="edit-panel" style="display: none;">
+        <div class="edit-panel-header">
+            <h5><i class="fas fa-edit"></i> Editar Gleba</h5>
+            <button id="close-edit-panel" class="close-panel-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="edit-panel-content">
+            <form id="gleba-form">
+                <!-- Informações da Gleba -->
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="no_gleba">Nº Gleba</label>
+                        <input type="text" id="no_gleba" name="no_gleba">
+                    </div>
+                    <div class="form-group">
+                        <label for="nome_gleba">Nome Gleba</label>
+                        <input type="text" id="nome_gleba" name="nome_gleba">
+                    </div>
+                    <div class="form-group">
+                        <label for="area">Área (m²)</label>
+                        <input type="text" id="area" name="area" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="perimetro">Perímetro (m)</label>
+                        <input type="text" id="perimetro" name="perimetro" readonly>
+                    </div>
+                </div>
+
+                <!-- Informações do Proprietário -->
+                <div class="form-section">
+                    <h6 class="section-title">Informações do Proprietário</h6>
+                    <div class="form-group">
+                        <label for="proprietario">Proprietário</label>
+                        <input type="text" id="proprietario" name="proprietario">
+                    </div>
+                    <div class="form-group">
+                        <label for="cpf">CPF (000.000.000-00)</label>
+                        <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14">
+                    </div>
+                    <div class="form-group">
+                        <label for="rg">RG</label>
+                        <input type="text" id="rg" name="rg">
+                    </div>
+                </div>
+
+                <!-- Endereço -->
+                <div class="form-section">
+                    <h6 class="section-title">Endereço</h6>
+                    <div class="form-group">
+                        <label for="rua">Rua</label>
+                        <input type="text" id="rua" name="rua">
+                    </div>
+                    <div class="form-group">
+                        <label for="bairro">Bairro</label>
+                        <input type="text" id="bairro" name="bairro">
+                    </div>
+                    <div class="form-group">
+                        <label for="quadra">Quadra</label>
+                        <input type="text" id="quadra" name="quadra">
+                    </div>
+                    <div class="form-group">
+                        <label for="cep">CEP (00000-000)</label>
+                        <input type="text" id="cep" name="cep" placeholder="00000-000" maxlength="9">
+                    </div>
+                    <div class="form-group">
+                        <label for="cidade">Cidade</label>
+                        <input type="text" id="cidade" name="cidade">
+                    </div>
+                    <div class="form-group">
+                        <label for="uf">UF</label>
+                        <select id="uf" name="uf">
+                            <option value="">Selecione...</option>
+                            <option value="AC">Acre</option>
+                            <option value="AL">Alagoas</option>
+                            <option value="AP">Amapá</option>
+                            <option value="AM">Amazonas</option>
+                            <option value="BA">Bahia</option>
+                            <option value="CE">Ceará</option>
+                            <option value="DF">Distrito Federal</option>
+                            <option value="ES">Espírito Santo</option>
+                            <option value="GO">Goiás</option>
+                            <option value="MA">Maranhão</option>
+                            <option value="MT">Mato Grosso</option>
+                            <option value="MS">Mato Grosso do Sul</option>
+                            <option value="MG">Minas Gerais</option>
+                            <option value="PA">Pará</option>
+                            <option value="PB">Paraíba</option>
+                            <option value="PR">Paraná</option>
+                            <option value="PE">Pernambuco</option>
+                            <option value="PI">Piauí</option>
+                            <option value="RJ">Rio de Janeiro</option>
+                            <option value="RN">Rio Grande do Norte</option>
+                            <option value="RS">Rio Grande do Sul</option>
+                            <option value="RO">Rondônia</option>
+                            <option value="RR">Roraima</option>
+                            <option value="SC">Santa Catarina</option>
+                            <option value="SP">São Paulo</option>
+                            <option value="SE">Sergipe</option>
+                            <option value="TO">Tocantins</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Testadas -->
+                <div class="form-section">
+                    <h6 class="section-title">Testadas</h6>
+                    <div class="form-group">
+                        <label for="testada_frente">Testada Frente (m)</label>
+                        <input type="text" id="testada_frente" name="testada_frente">
+                    </div>
+                    <div class="form-group">
+                        <label for="testada_direita">Testada Direita (m)</label>
+                        <input type="text" id="testada_direita" name="testada_direita">
+                    </div>
+                    <div class="form-group">
+                        <label for="testada_esquerda">Testada Esquerda (m)</label>
+                        <input type="text" id="testada_esquerda" name="testada_esquerda">
+                    </div>
+                    <div class="form-group">
+                        <label for="testada_fundo">Testada Fundo (m)</label>
+                        <input type="text" id="testada_fundo" name="testada_fundo">
+                    </div>
+                </div>
+
+                <!-- Confrontações -->
+                <div class="form-section">
+                    <h6 class="section-title">Confrontações</h6>
+                    <div class="form-group">
+                        <label for="confrontacao_frente">Confrontação Frente</label>
+                        <input type="text" id="confrontacao_frente" name="confrontacao_frente">
+                    </div>
+                    <div class="form-group">
+                        <label for="confrontacao_direita">Confrontação Direita</label>
+                        <input type="text" id="confrontacao_direita" name="confrontacao_direita">
+                    </div>
+                    <div class="form-group">
+                        <label for="confrontacao_esquerda">Confrontação Esquerda</label>
+                        <input type="text" id="confrontacao_esquerda" name="confrontacao_esquerda">
+                    </div>
+                    <div class="form-group">
+                        <label for="confrontacao_fundo">Confrontação Fundo</label>
+                        <input type="text" id="confrontacao_fundo" name="confrontacao_fundo">
+                    </div>
+                </div>
+
+                <!-- Informações do Imóvel -->
+                <div class="form-section">
+                    <h6 class="section-title">Informações do Imóvel</h6>
+                    <div class="form-group">
+                        <label for="matricula">Matrícula</label>
+                        <input type="text" id="matricula" name="matricula">
+                    </div>
+                    <div class="form-group">
+                        <label for="classe_imovel">Classe de Imóvel</label>
+                        <select id="classe_imovel" name="classe_imovel">
+                            <option value="">Selecione...</option>
+                            <option value="Urbano">Urbano</option>
+                            <option value="Rural">Rural</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipo_imovel">Tipo de Imóvel</label>
+                        <select id="tipo_imovel" name="tipo_imovel">
+                            <option value="">Selecione...</option>
+                            <option value="Residencial">Residencial</option>
+                            <option value="Edifício">Edifício</option>
+                            <option value="Lote Vazio">Lote Vazio</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="descricao_imovel">Descrição do Imóvel</label>
+                        <textarea id="descricao_imovel" name="descricao_imovel" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="calculate-measurements" class="btn-calculate">
+                        <i class="fas fa-calculator"></i> Calcular
+                    </button>
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-save"></i> Salvar
+                    </button>
+                    <button type="button" id="delete-feature" class="btn-delete">
+                        <i class="fas fa-trash"></i> Excluir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </aside>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <span>Desenvolvido por Anderson | WebGIS &copy; 2025</span>
+</footer>
+
+<!-- Modal de Edição -->
+<div id="edit-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h4>Editar Informações do Imóvel</h4>
+        <form id="edit-form">
+            <input type="hidden" id="edit-feature-id">
+            
+            <!-- Abas de Navegação -->
+            <div class="tab">
+                <button type="button" class="tablinks active" onclick="openTab(event, 'gleba')">Gleba</button>
+                <button type="button" class="tablinks" onclick="openTab(event, 'proprietario')">Proprietário</button>
+                <button type="button" class="tablinks" onclick="openTab(event, 'endereco')">Endereço</button>
+                <button type="button" class="tablinks" onclick="openTab(event, 'imovel')">Imóvel</button>
+            </div>
+
+            <!-- Conteúdo das Abas -->
+            <div id="gleba" class="tabcontent" style="display: block;">
+                <h5>Gleba</h5>
+                <label for="no_gleba">Nº Gleba:</label>
+                <input type="text" id="no_gleba" name="no_gleba">
+                
+                <label for="nome_gleba">Nome Gleba:</label>
+                <input type="text" id="nome_gleba" name="nome_gleba">
+
+                <label for="area">Área (m²):</label>
+                <input type="text" id="area" name="area">
+
+                <label for="perimetro">Perímetro (m):</label>
+                <input type="text" id="perimetro" name="perimetro">
+            </div>
+
+            <div id="proprietario" class="tabcontent">
+                <h5>Informações do Proprietário</h5>
+                <label for="proprietario_nome">Proprietário:</label>
+                <input type="text" id="proprietario_nome" name="proprietario_nome">
+
+                <label for="cpf">CPF:</label>
+                <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00">
+
+                <label for="rg">RG:</label>
+                <input type="text" id="rg" name="rg">
+            </div>
+
+            <div id="endereco" class="tabcontent">
+                <h5>Endereço</h5>
+                <label for="rua">Rua:</label>
+                <input type="text" id="rua" name="rua">
+
+                <label for="bairro">Bairro:</label>
+                <input type="text" id="bairro" name="bairro">
+
+                <label for="quadra">Quadra:</label>
+                <input type="text" id="quadra" name="quadra">
+
+                <label for="cep">CEP:</label>
+                <input type="text" id="cep" name="cep" placeholder="00000-000">
+
+                <label for="cidade">Cidade:</label>
+                <input type="text" id="cidade" name="cidade">
+
+                <label for="uf">UF:</label>
+                <select id="uf" name="uf">
+                    <!-- Opções de UF serão preenchidas aqui -->
+                </select>
+            </div>
+
+            <div id="imovel" class="tabcontent">
+                <h5>Informações do Imóvel</h5>
+                <label for="matricula">Matrícula:</label>
+                <input type="text" id="matricula" name="matricula">
+
+                <label for="classe_imovel">Classe de Imóvel:</label>
+                <select id="classe_imovel" name="classe_imovel">
+                    <option value="Urbano">Urbano</option>
+                    <option value="Rural">Rural</option>
+                </select>
+
+                <label for="tipo_imovel">Tipo de Imóvel:</label>
+                <select id="tipo_imovel" name="tipo_imovel">
+                    <option value="Residencial">Residencial</option>
+                    <option value="Edifício">Edifício</option>
+                    <option value="Lote Vazio">Lote Vazio</option>
+                </select>
+
+                <label for="descricao_imovel">Descrição do Imóvel:</label>
+                <textarea id="descricao_imovel" name="descricao_imovel" rows="4"></textarea>
+            </div>
+
+            <button type="submit" class="btn-save">Salvar Alterações</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Estilo geojson.io -->
+<div id="geojson-modal" class="geojson-modal" style="display: none;">
+    <div class="geojson-modal-content gleba-modal">
+        <div class="geojson-modal-header">
+            <div class="geojson-modal-tabs">
+                <button class="geojson-tab active" data-tab="dados-gleba">Dados da Gleba</button>
+                <button class="geojson-tab" data-tab="informacoes-tecnicas">Informações Técnicas</button>
+            </div>
+            <button id="geojson-modal-close" class="geojson-modal-close">×</button>
+        </div>
+        
+        <div class="geojson-modal-body">
+            <!-- Aba Dados da Gleba -->
+            <div id="dados-gleba-tab-content" class="geojson-tab-content active">
+                <!-- Informações da Gleba -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-map-marked-alt"></i> Informações da Gleba</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gleba-numero">Nº Gleba</label>
+                            <input type="text" id="gleba-numero" name="gleba-numero">
+                        </div>
+                        <div class="form-group">
+                            <label for="gleba-nome">Nome da Gleba</label>
+                            <input type="text" id="gleba-nome" name="gleba-nome">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gleba-area">Área (m²)</label>
+                            <input type="text" id="gleba-area" name="gleba-area" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="gleba-perimetro">Perímetro (m)</label>
+                            <input type="text" id="gleba-perimetro" name="gleba-perimetro" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informações do Proprietário -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-user"></i> Informações do Proprietário</h4>
+                    <div class="form-group">
+                        <label for="proprietario-nome">Proprietário</label>
+                        <input type="text" id="proprietario-nome" name="proprietario-nome">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="proprietario-cpf">CPF</label>
+                            <input type="text" id="proprietario-cpf" name="proprietario-cpf" placeholder="000.000.000-00" maxlength="14">
+                        </div>
+                        <div class="form-group">
+                            <label for="proprietario-rg">RG</label>
+                            <input type="text" id="proprietario-rg" name="proprietario-rg" placeholder="000000000000-0" maxlength="15">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endereço -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-map-marker-alt"></i> Endereço</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="endereco-rua">Rua</label>
+                            <input type="text" id="endereco-rua" name="endereco-rua">
+                        </div>
+                        <div class="form-group">
+                            <label for="endereco-bairro">Bairro</label>
+                            <input type="text" id="endereco-bairro" name="endereco-bairro">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="endereco-quadra">Quadra</label>
+                            <input type="text" id="endereco-quadra" name="endereco-quadra">
+                        </div>
+                        <div class="form-group">
+                            <label for="endereco-cep">CEP</label>
+                            <input type="text" id="endereco-cep" name="endereco-cep" placeholder="00000-000" maxlength="9">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="endereco-cidade">Cidade</label>
+                            <input type="text" id="endereco-cidade" name="endereco-cidade">
+                        </div>
+                        <div class="form-group">
+                            <label for="endereco-uf">UF</label>
+                            <select id="endereco-uf" name="endereco-uf">
+                                <option value="">Selecione</option>
+                                <option value="AC">Acre</option>
+                                <option value="AL">Alagoas</option>
+                                <option value="AP">Amapá</option>
+                                <option value="AM">Amazonas</option>
+                                <option value="BA">Bahia</option>
+                                <option value="CE">Ceará</option>
+                                <option value="DF">Distrito Federal</option>
+                                <option value="ES">Espírito Santo</option>
+                                <option value="GO">Goiás</option>
+                                <option value="MA">Maranhão</option>
+                                <option value="MT">Mato Grosso</option>
+                                <option value="MS">Mato Grosso do Sul</option>
+                                <option value="MG">Minas Gerais</option>
+                                <option value="PA">Pará</option>
+                                <option value="PB">Paraíba</option>
+                                <option value="PR">Paraná</option>
+                                <option value="PE">Pernambuco</option>
+                                <option value="PI">Piauí</option>
+                                <option value="RJ">Rio de Janeiro</option>
+                                <option value="RN">Rio Grande do Norte</option>
+                                <option value="RS">Rio Grande do Sul</option>
+                                <option value="RO">Rondônia</option>
+                                <option value="RR">Roraima</option>
+                                <option value="SC">Santa Catarina</option>
+                                <option value="SP">São Paulo</option>
+                                <option value="SE">Sergipe</option>
+                                <option value="TO">Tocantins</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Testadas -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-ruler"></i> Testadas</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="testada-frente">Testada Frente (m)</label>
+                            <input type="text" id="testada-frente" name="testada-frente">
+                        </div>
+                        <div class="form-group">
+                            <label for="testada-ld">Testada LD (m)</label>
+                            <input type="text" id="testada-ld" name="testada-ld">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="testada-le">Testada LE (m)</label>
+                            <input type="text" id="testada-le" name="testada-le">
+                        </div>
+                        <div class="form-group">
+                            <label for="testada-f">Testada F (m)</label>
+                            <input type="text" id="testada-f" name="testada-f">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informações do Imóvel -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-home"></i> Informações do Imóvel</h4>
+                    <div class="form-group">
+                        <label for="imovel-matricula">Matrícula</label>
+                        <input type="text" id="imovel-matricula" name="imovel-matricula">
+                    </div>
+                    
+                    <!-- Seleções suspensas em linha -->
+                    <div class="form-row select-row">
+                        <div class="form-group">
+                            <label for="zoneamento">Zoneamento</label>
+                            <select id="zoneamento" name="zoneamento">
+                                <option value="">Selecione</option>
+                                <option value="zona-urbana">Zona Urbana</option>
+                                <option value="zona-residencial">Zona Residencial</option>
+                                <option value="zona-comercial">Zona Comercial</option>
+                                <option value="zona-industrial">Zona Industrial</option>
+                                <option value="zona-rural">Zona Rural</option>
+                                <option value="zona-interesse-social">Zona de Interesse Social</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="finalidade">Finalidade do Imóvel</label>
+                            <select id="finalidade" name="finalidade">
+                                <option value="">Selecione</option>
+                                <option value="residencial">Residencial</option>
+                                <option value="comercial">Comercial</option>
+                                <option value="industrial">Industrial</option>
+                                <option value="institucional">Institucional</option>
+                                <option value="misto">Misto</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row select-row">
+                        <div class="form-group">
+                            <label for="padrao-construtivo">Padrão Construtivo</label>
+                            <select id="padrao-construtivo" name="padrao-construtivo">
+                                <option value="">Selecione</option>
+                                <option value="baixo">Baixo</option>
+                                <option value="medio">Médio</option>
+                                <option value="alto">Alto</option>
+                                <option value="luxo">Luxo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="situacao-fundiaria">Situação Fundiária</label>
+                            <select id="situacao-fundiaria" name="situacao-fundiaria">
+                                <option value="">Selecione</option>
+                                <option value="regularizado">Regularizado</option>
+                                <option value="em-processo">Em processo de regularização</option>
+                                <option value="irregular">Irregular</option>
+                                <option value="area-invadida">Área invadida</option>
+                                <option value="area-publica">Área pública</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ocupacao-atual">Ocupação Atual</label>
+                        <select id="ocupacao-atual" name="ocupacao-atual">
+                            <option value="">Selecione</option>
+                            <option value="ocupado-proprietario">Ocupado pelo proprietário</option>
+                            <option value="alugado">Alugado</option>
+                            <option value="desocupado">Desocupado</option>
+                            <option value="em-obras">Em obras</option>
+                            <option value="abandonado">Abandonado</option>
+                            <option value="arrendado">Arrendado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="descricao-imovel">Descrição do Imóvel</label>
+                        <textarea id="descricao-imovel" name="descricao-imovel" rows="3" placeholder="Descreva as características do imóvel..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Aba Informações Técnicas -->
+            <div id="informacoes-tecnicas-tab-content" class="geojson-tab-content">
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-info-circle"></i> Informações Técnicas</h4>
+                    <div class="geojson-info-section">
+                        <p><strong>Tipo:</strong> <span id="feature-type-info">-</span></p>
+                        <p><strong>Área:</strong> <span id="feature-area-info">-</span></p>
+                        <p><strong>Perímetro:</strong> <span id="feature-length-info">-</span></p>
+                        <p><strong>Coordenadas:</strong> <span id="feature-coords-info">-</span></p>
+                    </div>
+                    
+                    <div class="style-actions">
+                        <button id="add-simplestyle-btn" class="geojson-add-btn">
+                            <i class="fas fa-palette"></i> Estilos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="geojson-modal-footer">
+            <button id="save-feature-btn" class="geojson-btn-primary">Salvar</button>
+            <button id="cancel-feature-btn" class="geojson-btn-secondary">Cancelar</button>
+            <button id="delete-feature-btn" class="geojson-btn-danger">Excluir</button>
+        </div>
+    </div>
+</div>
+
+<!-- Table View Modal -->
+<div id="table-modal" class="table-modal" style="display: none;">
+    <div class="table-modal-content">
+        <div class="table-modal-header">
+            <h3><i class="fas fa-table"></i> Feature Table</h3>
+            <button id="table-modal-close" class="table-modal-close">×</button>
+        </div>
+        <div class="table-modal-body">
+            <div class="table-controls">
+                <button id="export-table-btn" class="table-control-btn">
+                    <i class="fas fa-download"></i> Export
+                </button>
+                <button id="add-feature-btn" class="table-control-btn">
+                    <i class="fas fa-plus"></i> Add Feature
+                </button>
+            </div>
+            <div class="table-container">
+                <table id="features-table" class="features-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Name</th>
+                            <th>Area/Length</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="features-table-body">
+                        <!-- Table rows will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Estilos Simplificado -->
+<div id="style-modal" class="geojson-modal" style="display: none;">
+    <div class="geojson-modal-content">
+        <div class="geojson-modal-header">
+            <h3><i class="fas fa-palette"></i> Estilos da Feature</h3>
+            <button id="style-modal-close" class="geojson-modal-close">×</button>
+        </div>
+        <div class="geojson-modal-body">
+            <div class="style-controls">
+                <div class="style-group">
+                    <label for="fill-color">Cor de Preenchimento:</label>
+                    <input type="color" id="fill-color" value="#3b82f6">
+                    <label for="fill-opacity">Transparência do Preenchimento:</label>
+                    <input type="range" id="fill-opacity" min="0" max="1" step="0.1" value="0.2">
+                    <span id="fill-opacity-value">20%</span>
+                </div>
+                
+                <div class="style-group">
+                    <label for="stroke-color">Cor da Borda:</label>
+                    <input type="color" id="stroke-color" value="#3b82f6">
+                    <label for="stroke-opacity">Transparência da Borda:</label>
+                    <input type="range" id="stroke-opacity" min="0" max="1" step="0.1" value="0.8">
+                    <span id="stroke-opacity-value">80%</span>
+                    <label for="stroke-width">Espessura da Borda:</label>
+                    <input type="range" id="stroke-width" min="1" max="10" step="1" value="2">
+                    <span id="stroke-width-value">2px</span>
+                </div>
+            </div>
+        </div>
+        <div class="geojson-modal-footer">
+            <button id="apply-style-btn" class="geojson-btn-primary">Aplicar Estilos</button>
+            <button id="cancel-style-btn" class="geojson-btn-secondary">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Atributos para Glebas -->
+<div id="attribute-modal-overlay" class="modal-overlay" style="display: none;"></div>
+<div id="attribute-modal" class="attribute-modal" style="display: none;">
+    <div class="attribute-modal-header">
+        <div class="modal-tabs">
+            <button id="properties-tab" class="modal-tab active">Dados da Gleba</button>
+            <button id="info-tab" class="modal-tab">Informações Técnicas</button>
+        </div>
+        <button id="close-attribute-modal" class="modal-close-btn">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div class="attribute-modal-content">
+        <div id="properties-content" class="tab-content active">
+            <form id="gleba-attributes-form">
+                <!-- Informações da Gleba -->
+                <div class="form-section">
+                    <h6 class="section-title"><i class="fas fa-map-marked-alt"></i> Informações da Gleba</h6>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="no_gleba">Nº Gleba</label>
+                            <input type="text" id="no_gleba" name="no_gleba" placeholder="Ex: 001">
+                        </div>
+                        <div class="form-group">
+                            <label for="nome_gleba">Nome da Gleba</label>
+                            <input type="text" id="nome_gleba" name="nome_gleba" placeholder="Ex: Gleba São João">
+                        </div>
+                    </div>
+                    <div class="form-row" id="geometry-fields">
+                        <div class="form-group" id="area-field">
+                            <label for="area">Área (m²)</label>
+                            <input type="text" id="area" name="area" readonly placeholder="Calculado automaticamente">
+                        </div>
+                        <div class="form-group" id="perimetro-field">
+                            <label for="perimetro">Perímetro (m)</label>
+                            <input type="text" id="perimetro" name="perimetro" readonly placeholder="Calculado automaticamente">
+                        </div>
+                        <div class="form-group" id="distancia-field" style="display: none;">
+                            <label for="distancia">Distância (m)</label>
+                            <input type="text" id="distancia" name="distancia" readonly placeholder="Calculado automaticamente">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informações do Proprietário -->
+                <div class="form-section">
+                    <h6 class="section-title"><i class="fas fa-user"></i> Informações do Proprietário</h6>
+                    <div class="form-group">
+                        <label for="proprietario">Proprietário</label>
+                        <input type="text" id="proprietario" name="proprietario" placeholder="Nome completo do proprietário">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cpf">CPF</label>
+                            <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14">
+                        </div>
+                        <div class="form-group">
+                            <label for="rg">RG</label>
+                            <input type="text" id="rg" name="rg" placeholder="000000000000-0" maxlength="15">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endereço -->
+                <div class="form-section">
+                    <h6 class="section-title"><i class="fas fa-map-marker-alt"></i> Endereço</h6>
+                    <div class="form-group">
+                        <label for="rua">Rua</label>
+                        <input type="text" id="rua" name="rua" placeholder="Nome da rua/logradouro">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="bairro">Bairro</label>
+                            <input type="text" id="bairro" name="bairro" placeholder="Nome do bairro">
+                        </div>
+                        <div class="form-group">
+                            <label for="quadra">Quadra</label>
+                            <input type="text" id="quadra" name="quadra" placeholder="Ex: A, B, 01">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cep">CEP</label>
+                            <input type="text" id="cep" name="cep" placeholder="00000-000" maxlength="9">
+                        </div>
+                        <div class="form-group">
+                            <label for="cidade">Cidade</label>
+                            <input type="text" id="cidade" name="cidade" placeholder="Nome da cidade">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="uf">UF</label>
+                        <select id="uf" name="uf">
+                            <option value="">Selecione o estado...</option>
+                            <option value="AC">Acre</option>
+                            <option value="AL">Alagoas</option>
+                            <option value="AP">Amapá</option>
+                            <option value="AM">Amazonas</option>
+                            <option value="BA">Bahia</option>
+                            <option value="CE">Ceará</option>
+                            <option value="DF">Distrito Federal</option>
+                            <option value="ES">Espírito Santo</option>
+                            <option value="GO">Goiás</option>
+                            <option value="MA">Maranhão</option>
+                            <option value="MT">Mato Grosso</option>
+                            <option value="MS">Mato Grosso do Sul</option>
+                            <option value="MG">Minas Gerais</option>
+                            <option value="PA">Pará</option>
+                            <option value="PB">Paraíba</option>
+                            <option value="PR">Paraná</option>
+                            <option value="PE">Pernambuco</option>
+                            <option value="PI">Piauí</option>
+                            <option value="RJ">Rio de Janeiro</option>
+                            <option value="RN">Rio Grande do Norte</option>
+                            <option value="RS">Rio Grande do Sul</option>
+                            <option value="RO">Rondônia</option>
+                            <option value="RR">Roraima</option>
+                            <option value="SC">Santa Catarina</option>
+                            <option value="SP">São Paulo</option>
+                            <option value="SE">Sergipe</option>
+                            <option value="TO">Tocantins</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Testadas -->
+                <div class="form-section">
+                    <h6 class="section-title"><i class="fas fa-ruler"></i> Testadas</h6>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="testada_frente">Testada Frente (m)</label>
+                            <input type="text" id="testada_frente" name="testada_frente" placeholder="Ex: 15.50">
+                        </div>
+                        <div class="form-group">
+                            <label for="testada_ld">Testada LD (m)</label>
+                            <input type="text" id="testada_ld" name="testada_ld" placeholder="Ex: 30.00">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="testada_le">Testada LE (m)</label>
+                            <input type="text" id="testada_le" name="testada_le" placeholder="Ex: 30.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="testada_f">Testada F (m)</label>
+                            <input type="text" id="testada_f" name="testada_f" placeholder="Ex: 15.50">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informações do Imóvel -->
+                <div class="form-section">
+                    <h6 class="section-title"><i class="fas fa-home"></i> Informações do Imóvel</h6>
+                    <div class="form-group">
+                        <label for="matricula">Matrícula</label>
+                        <input type="text" id="matricula" name="matricula" placeholder="Número da matrícula">
+                    </div>
+                    
+                    <!-- Seleções suspensas em linha -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="zoneamento">Zoneamento</label>
+                            <select id="zoneamento" name="zoneamento">
+                                <option value="">Selecione</option>
+                                <option value="zona-urbana">Zona Urbana</option>
+                                <option value="zona-residencial">Zona Residencial</option>
+                                <option value="zona-comercial">Zona Comercial</option>
+                                <option value="zona-industrial">Zona Industrial</option>
+                                <option value="zona-rural">Zona Rural</option>
+                                <option value="zona-interesse-social">Zona de Interesse Social</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="finalidade_imovel">Finalidade do Imóvel</label>
+                            <select id="finalidade_imovel" name="finalidade_imovel">
+                                <option value="">Selecione</option>
+                                <option value="residencial">Residencial</option>
+                                <option value="comercial">Comercial</option>
+                                <option value="industrial">Industrial</option>
+                                <option value="institucional">Institucional</option>
+                                <option value="misto">Misto</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="padrao_construtivo">Padrão Construtivo</label>
+                            <select id="padrao_construtivo" name="padrao_construtivo">
+                                <option value="">Selecione</option>
+                                <option value="baixo">Baixo</option>
+                                <option value="medio">Médio</option>
+                                <option value="alto">Alto</option>
+                                <option value="luxo">Luxo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="situacao_fundiaria">Situação Fundiária</label>
+                            <select id="situacao_fundiaria" name="situacao_fundiaria">
+                                <option value="">Selecione</option>
+                                <option value="regularizado">Regularizado</option>
+                                <option value="em-processo">Em processo de regularização</option>
+                                <option value="irregular">Irregular</option>
+                                <option value="area-invadida">Área invadida</option>
+                                <option value="area-publica">Área pública</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ocupacao_atual">Ocupação Atual</label>
+                        <select id="ocupacao_atual" name="ocupacao_atual">
+                            <option value="">Selecione</option>
+                            <option value="ocupado-proprietario">Ocupado pelo proprietário</option>
+                            <option value="alugado">Alugado</option>
+                            <option value="desocupado">Desocupado</option>
+                            <option value="em-obras">Em obras</option>
+                            <option value="abandonado">Abandonado</option>
+                            <option value="arrendado">Arrendado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="descricao_imovel">Descrição do Imóvel</label>
+                        <textarea id="descricao_imovel" name="descricao_imovel" rows="3" placeholder="Descreva características específicas do imóvel..."></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div id="info-content" class="tab-content">
+            <div class="info-section">
+                <p><strong>Tipo de Feature:</strong> <span id="feature-type">-</span></p>
+                <p><strong>Data de Criação:</strong> <span id="feature-created">-</span></p>
+                <p><strong>Coordenadas:</strong> <span id="feature-coords">-</span></p>
+                <p><strong>ID Único:</strong> <span id="feature-id">-</span></p>
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button id="save-attributes-btn" class="action-btn save-btn">
+                <i class="fas fa-save"></i> Salvar Gleba
+            </button>
+            <button id="cancel-attributes-btn" class="action-btn cancel-btn">
+                <i class="fas fa-times"></i> Cancelar
+            </button>
+            <button id="delete-feature-btn" class="action-btn delete-btn">
+                <i class="fas fa-trash"></i> Excluir Gleba
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<!-- Leaflet Draw JS -->
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<!-- Leaflet GeometryUtil for area calculations -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet-geometryutil@0.10.1/src/leaflet.geometryutil.js"></script>
+
+<!-- toGeoJSON -->
+<script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
+
+<!-- Map Initialization Core -->
+<script src="{{ url_for('static_files', filename='map-init.js') }}?v={{ range(90000, 99999) | random }}"></script>
+
+<!-- Fallback script for manual initialization -->
+<script>
+// Fallback manual se o map-init.js não funcionar
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        if (!window.webgisReady && typeof window.initWebGISMap === 'function') {
+            console.log('🔄 Executando fallback de inicialização...');
+            window.initWebGISMap();
+        }
+    }, 1500);
+});
+</script>
+
+<!-- Custom JS -->
+<script src="{{ url_for('static_files', filename='geojson-style.js') }}?v={{ range(90000, 99999) | random }}"></script>
+<script src="{{ url_for('static_files', filename='app.js') }}?v={{ range(90000, 99999) | random }}"></script>
+{% endblock %} 
