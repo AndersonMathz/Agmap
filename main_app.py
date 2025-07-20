@@ -23,12 +23,27 @@ try:
     # CORREÇÃO CRÍTICA: Garantir inicialização do banco
     with app.app_context():
         try:
-            # Tentar importar enhanced models primeiro
+            # Inicializar database instance primeiro
+            if hasattr(app_module, 'db') and app_module.db:
+                try:
+                    app_module.db.init_app(app)
+                    print("SQLAlchemy inicializado com app")
+                except:
+                    pass
+            
+            # Tentar importar enhanced models depois de inicializar db
             from app.models.enhanced_models import init_enhanced_database, SQLALCHEMY_AVAILABLE
             if SQLALCHEMY_AVAILABLE:
                 print("Inicializando banco enhanced...")
-                init_enhanced_database()
-                print("Banco enhanced inicializado!")
+                # Só chamar se db estiver configurado
+                try:
+                    init_enhanced_database()
+                    print("Banco enhanced inicializado!")
+                except Exception as db_err:
+                    print(f"Erro no enhanced database: {db_err}")
+                    # Fallback para criação simples
+                    app_module.db.create_all()
+                    print("Tabelas basicas criadas como fallback")
             else:
                 # Fallback para banco simples
                 from app.models.models import init_users, db
@@ -38,7 +53,7 @@ try:
                     print("Banco simples inicializado!")
         except Exception as e:
             print(f"Erro na inicializacao do banco: {e}")
-            # Força criação das tabelas básicas
+            # Força criação das tabelas básicas como último recurso
             try:
                 if hasattr(app_module, 'db') and app_module.db:
                     app_module.db.create_all()
