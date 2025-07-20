@@ -22,10 +22,9 @@ if not os.environ.get('DATABASE_URL'):
     logger.warning("DATABASE_URL não configurada, usando SQLite em memória")
 
 try:
-    # Tentar primeiro a versão completa
-    from app import create_app
-    app = create_app('production')
-    logger.info("✅ Aplicação completa criada com sucesso")
+    # Tentar aplicação principal garantida
+    from main_app import app
+    logger.info("✅ Aplicação principal (main_app.py) carregada com sucesso")
     
 except Exception as e:
     logger.warning(f"⚠️ Aplicação completa falhou: {e}")
