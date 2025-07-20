@@ -12,11 +12,9 @@ PyJWT==2.8.0
 python-dotenv==1.0.0
 bleach==6.1.0
 
-# Database
-psycopg2-binary==2.9.9  # PostgreSQL adapter
+# Database - versões compatíveis com Python 3.13
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.32
 
 # Production server
 gunicorn==21.2.0
-
-# Runtime dependencies
-SQLAlchemy==2.0.23

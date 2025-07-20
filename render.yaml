@@ -3,8 +3,9 @@ services:
     name: webag-professional
     env: python
     plan: free
+    runtime: python-3.12.7
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn wsgi:app"
+    startCommand: "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
     envVars:
       - key: FLASK_ENV
         value: production
@@ -16,8 +17,6 @@ services:
           property: connectionString
       - key: PYTHONPATH
         value: /opt/render/project/src
-      - key: PORT
-        value: 10000
 
   - type: pserv
     name: webag-db
