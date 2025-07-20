@@ -121,10 +121,14 @@ security_logger.setLevel(logging.WARNING)
 
 def create_app(config_name='default'):
     """Factory para criar aplicação Flask"""
+    print(f"[DEBUG] Iniciando create_app com config: {config_name}")
     app = Flask(__name__)
+    
+    print("[DEBUG] App Flask criado")
     
     # Configuração
     app.config.from_object(config[config_name])
+    print("[DEBUG] Configuracao aplicada")
     
     # Corrigir caminho do banco para usar instance folder
     db_uri = app.config.get('SQLALCHEMY_DATABASE_URI')
@@ -135,6 +139,9 @@ def create_app(config_name='default'):
     # Inicializar o banco de dados com o app
     if db:
         db.init_app(app)
+        print("[DEBUG] SQLAlchemy inicializado")
+    
+    print("[DEBUG] Iniciando configuracao de modelos...")
     
     # Imports após inicialização para evitar circular imports
     global MODELS_AVAILABLE, init_users, authenticate_user, get_user_by_username, GeoFeature, Gleba
@@ -265,6 +272,8 @@ def create_app(config_name='default'):
     @app.errorhandler(RequestEntityTooLarge)
     def file_too_large(error):
         return jsonify({'error': 'Arquivo muito grande'}), 413
+    
+    print("[DEBUG] Iniciando definicao das rotas...")
     
     # Rotas de autenticação
     @app.route('/login', methods=['GET', 'POST'])
@@ -1276,6 +1285,7 @@ def create_app(config_name='default'):
     if init_users:
         init_users()
     
+    print(f"[DEBUG] create_app finalizado com {len(app.url_map._rules)} rotas")
     return app
 
 if __name__ == '__main__':
