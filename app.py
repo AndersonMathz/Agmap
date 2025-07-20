@@ -146,6 +146,10 @@ def create_app(config_name='default'):
     """Factory para criar aplicação Flask"""
     print(f"[DEBUG] Iniciando create_app com config: {config_name}")
     
+    # Configurar logging
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # Definir caminhos absolutos para templates e static
     import os
     
@@ -223,9 +227,9 @@ def create_app(config_name='default'):
                 
                 # Verificar especificamente se a tabela glebas foi criada
                 if 'glebas' in final_tables:
-                    logger.info("[DATABASE] ✅ Tabela glebas criada com sucesso")
+                    logger.info("[DATABASE] OK - Tabela glebas criada com sucesso")
                 else:
-                    logger.warning("[DATABASE] ⚠️ Tabela glebas não foi criada")
+                    logger.warning("[DATABASE] AVISO - Tabela glebas nao foi criada")
                 
                 # Criar tabela map_features se não existir (para SQLite)
                 db_path = os.environ.get('DATABASE_URL', 'sqlite:///instance/webgis.db')
@@ -249,11 +253,11 @@ def create_app(config_name='default'):
                             )
                         ''')
                         conn.commit()
-                        logger.info("[DATABASE] ✅ Tabela map_features verificada/criada")
+                        logger.info("[DATABASE] OK - Tabela map_features verificada/criada")
                         
             except Exception as e:
-                logger.error(f"[DATABASE] ❌ Erro ao criar tabelas: {e}")
-                print(f"❌ Erro ao criar tabelas: {e}")
+                logger.error(f"[DATABASE] ERRO ao criar tabelas: {e}")
+                print(f"ERRO ao criar tabelas: {e}")
     
     # Se enhanced models não estão disponíveis, criar sistema de fallback
     if not ENHANCED_MODELS_AVAILABLE:
@@ -337,6 +341,7 @@ def create_app(config_name='default'):
             return get_user_by_username(user_id)
     
     # Headers de segurança
+    print("[DEBUG] Configurando headers de segurança...")
     @app.after_request
     def add_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -345,6 +350,7 @@ def create_app(config_name='default'):
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; style-src-elem 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com;"
         return response
+    print("[DEBUG] Headers configurados...")
     
     # Tratamento de erros
     @app.errorhandler(404)
@@ -359,12 +365,16 @@ def create_app(config_name='default'):
     def internal_error(error):
         return render_template('error.html', error='Erro interno do servidor'), 500
     
+    print("[DEBUG] Antes de definir error handlers...")
     @app.errorhandler(RequestEntityTooLarge)
     def file_too_large(error):
         return jsonify({'error': 'Arquivo muito grande'}), 413
     
+    print("[DEBUG] Error handlers definidos, iniciando rotas...")
     print("[DEBUG] Iniciando definicao das rotas...")
+    logger.debug("[ROUTES] Iniciando definição de rotas...")
     
+    print("[DEBUG] Definindo rota /login...")
     # Rotas de autenticação
     @app.route('/login', methods=['GET', 'POST'])
     def login():
