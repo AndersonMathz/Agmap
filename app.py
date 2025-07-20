@@ -125,7 +125,47 @@ def create_app(config_name='default'):
     
     # Definir caminhos absolutos para templates e static
     import os
-    basedir = os.path.abspath(os.path.dirname(__file__))
+    import sys
+    
+    # CORREÇÃO: Encontrar o diretório correto onde o app.py está localizado
+    # Método 1: Usar __file__ se disponível
+    try:
+        basedir = os.path.abspath(os.path.dirname(__file__))
+        print(f"[DEBUG] Método 1 - __file__: {basedir}")
+    except:
+        basedir = None
+    
+    # Método 2: Usar o módulo atual se __file__ não funcionar
+    if not basedir or not os.path.exists(os.path.join(basedir, 'templates')):
+        try:
+            import inspect
+            frame = inspect.currentframe()
+            current_file = frame.f_globals['__file__']
+            basedir = os.path.abspath(os.path.dirname(current_file))
+            print(f"[DEBUG] Método 2 - inspect: {basedir}")
+        except:
+            basedir = None
+    
+    # Método 3: Buscar no diretório de trabalho atual
+    if not basedir or not os.path.exists(os.path.join(basedir, 'templates')):
+        current_dir = os.getcwd()
+        if os.path.exists(os.path.join(current_dir, 'templates')):
+            basedir = current_dir
+            print(f"[DEBUG] Método 3 - cwd: {basedir}")
+    
+    # Método 4: Procurar em sys.path
+    if not basedir or not os.path.exists(os.path.join(basedir, 'templates')):
+        for path in sys.path:
+            if os.path.exists(os.path.join(path, 'templates')) and os.path.exists(os.path.join(path, 'app.py')):
+                basedir = path
+                print(f"[DEBUG] Método 4 - sys.path: {basedir}")
+                break
+    
+    # Fallback final
+    if not basedir:
+        basedir = os.getcwd()
+        print(f"[DEBUG] Fallback final: {basedir}")
+    
     template_dir = os.path.join(basedir, 'templates')
     static_dir = os.path.join(basedir, 'static')
     
