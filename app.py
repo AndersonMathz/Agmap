@@ -66,6 +66,35 @@ try:
     UTILS_AVAILABLE = True
 except ImportError:
     UTILS_AVAILABLE = False
+    
+    # Fallback functions quando utils não está disponível
+    def allowed_file(filename, allowed_extensions=None):
+        if allowed_extensions is None:
+            allowed_extensions = {'kml', 'kmz', 'geojson', 'json'}
+        return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+    
+    def validate_kml_content(content):
+        try:
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(content)
+            if 'kml' not in root.tag.lower():
+                return False, "Arquivo não é um KML válido"
+            return True, content
+        except Exception as e:
+            return False, f"Erro ao validar KML: {str(e)}"
+    
+    def sanitize_user_input(input_text):
+        if not input_text:
+            return ""
+        sanitized = str(input_text).replace('<', '').replace('>', '').replace('"', '').replace("'", '')
+        return sanitized[:1000]
+    
+    def create_safe_path(directory, filename):
+        safe_name = filename.replace('/', '_').replace('\\', '_').replace(':', '_')
+        return os.path.join(directory, safe_name)
+    
+    def log_security_event(event_type, message, user=None):
+        print(f"SECURITY [{event_type}]: {message}")
 
 # Configurar logging
 logging.basicConfig(
@@ -256,10 +285,22 @@ def create_app(config_name='default'):
         return render_template('login.html')
     
     @app.route('/logout')
-    @login_required
     def logout():
-        log_security_event('logout', f'Usuário {current_user.username} fez logout')
-        logout_user()
+        try:
+            if LOGIN_MANAGER_AVAILABLE and hasattr(current_user, 'username'):
+                log_security_event('logout', f'Usuário {current_user.username} fez logout')
+                logout_user()
+            else:
+                # Fallback para sessão simples
+                from flask import session
+                session.clear()
+                log_security_event('logout', 'Usuário fez logout (sessão simples)')
+        except Exception as e:
+            # Em caso de erro, limpar sessão
+            from flask import session
+            session.clear()
+            log_security_event('logout_error', f'Erro no logout: {str(e)}')
+        
         return redirect(url_for('login'))
     
     # Rota principal - redireciona para login se não autenticado
@@ -379,7 +420,13 @@ def create_app(config_name='default'):
         if request.method == 'GET':
             # Buscar features do banco ou usar sistema simplificado
             try:
-                with sqlite3.connect('instance/webgis.db') as conn:
+                # Usar banco correto baseado na configuração
+                db_path = os.environ.get('DATABASE_URL', 'sqlite:///instance/webgis.db')
+                if db_path.startswith('sqlite:///'):
+                    db_file = db_path.replace('sqlite:///', '')
+                    if not db_file.startswith('/'):
+                        db_file = os.path.join(os.getcwd(), db_file)
+                    with sqlite3.connect(db_file) as conn:
                     cursor = conn.cursor()
                     cursor.execute('''
                         CREATE TABLE IF NOT EXISTS map_features (
@@ -430,7 +477,13 @@ def create_app(config_name='default'):
                 geometry = json.dumps(data['geometry'])
                 properties = json.dumps(data.get('properties', {}))
                 
-                with sqlite3.connect('instance/webgis.db') as conn:
+                # Usar banco correto baseado na configuração
+                db_path = os.environ.get('DATABASE_URL', 'sqlite:///instance/webgis.db')
+                if db_path.startswith('sqlite:///'):
+                    db_file = db_path.replace('sqlite:///', '')
+                    if not db_file.startswith('/'):
+                        db_file = os.path.join(os.getcwd(), db_file)
+                    with sqlite3.connect(db_file) as conn:
                     cursor = conn.cursor()
                     cursor.execute('''
                         INSERT OR REPLACE INTO map_features 
@@ -495,27 +548,62 @@ def create_app(config_name='default'):
         except Exception as e:
             return jsonify({'error': f'Erro limpando features: {str(e)}'}), 500
     
-    @app.route('/api/features/<int:feature_id>', methods=['PUT'])
+    @app.route('/api/features/<feature_id>', methods=['PUT'])
     @login_required
     def update_feature(feature_id):
-        if not current_user.has_privilege('canEditLayers'):
-            return jsonify({'error': 'Sem permissão para editar'}), 403
+        try:
+            # Verificar permissões se disponível
+            if LOGIN_MANAGER_AVAILABLE and hasattr(current_user, 'has_privilege'):
+                if not current_user.has_privilege('canEditLayers'):
+                    return jsonify({'error': 'Sem permissão para editar'}), 403
 
-        if not MODELS_AVAILABLE or not GeoFeature:
-            return jsonify({'error': 'Modelos de dados não disponíveis'}), 500
-            
-        feature = GeoFeature.query.get_or_404(feature_id)
-        data = request.get_json()
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Dados inválidos'}), 400
 
-        if not data:
-            return jsonify({'error': 'Dados inválidos'}), 400
-
-        # Sanitizar e validar os dados recebidos aqui antes de salvar
-        # Por enquanto, vamos salvar diretamente
-        feature.properties = data
-        db.session.commit()
-
-        return jsonify(feature.to_dict())
+            if MODELS_AVAILABLE and GeoFeature and db:
+                # Usar SQLAlchemy se disponível
+                feature = GeoFeature.query.get_or_404(feature_id)
+                feature.properties = sanitize_user_input(json.dumps(data))
+                db.session.commit()
+                return jsonify(feature.to_dict())
+            else:
+                # Fallback para SQLite direto
+                db_path = os.environ.get('DATABASE_URL', 'sqlite:///instance/webgis.db')
+                if db_path.startswith('sqlite:///'):
+                    db_file = db_path.replace('sqlite:///', '')
+                    if not db_file.startswith('/'):
+                        db_file = os.path.join(os.getcwd(), db_file)
+                    
+                    with sqlite3.connect(db_file) as conn:
+                        cursor = conn.cursor()
+                        
+                        # Atualizar propriedades da feature
+                        properties_json = json.dumps(data.get('properties', {}))
+                        cursor.execute('''
+                            UPDATE map_features 
+                            SET properties = ?, geometry = ?
+                            WHERE id = ?
+                        ''', (
+                            properties_json, 
+                            json.dumps(data.get('geometry', {})),
+                            feature_id
+                        ))
+                        
+                        if cursor.rowcount == 0:
+                            return jsonify({'error': 'Feature não encontrada'}), 404
+                        
+                        conn.commit()
+                        
+                        return jsonify({
+                            'id': feature_id,
+                            'message': 'Feature atualizada com sucesso',
+                            'properties': data.get('properties', {})
+                        })
+                        
+        except Exception as e:
+            log_security_event('update_error', f'Erro ao atualizar feature: {str(e)}')
+            return jsonify({'error': 'Erro interno do servidor'}), 500
     
     # API para upload de arquivos KML
     @app.route('/api/upload/kml', methods=['POST'])
