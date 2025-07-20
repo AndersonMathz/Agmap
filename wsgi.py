@@ -35,8 +35,15 @@ except Exception as e:
         app = create_simple_app()
         logger.info("✅ Aplicação simplificada criada com sucesso")
     except Exception as e2:
-        logger.error(f"❌ Aplicação simplificada também falhou: {e2}")
-        raise Exception(f"Ambas as versões falharam: {e} | {e2}")
+        logger.warning(f"⚠️ Aplicação simplificada falhou: {e2}")
+        try:
+            # Tentar versão mínima (sem SQLAlchemy)
+            from app_minimal import create_minimal_app
+            app = create_minimal_app()
+            logger.info("✅ Aplicação mínima criada com sucesso")
+        except Exception as e3:
+            logger.error(f"❌ Todas as versões falharam: {e} | {e2} | {e3}")
+            raise Exception(f"Todas as versões falharam")
     
 except ImportError as e:
     logger.error(f"❌ Erro de import: {e}")
