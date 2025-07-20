@@ -23,9 +23,16 @@ if not os.environ.get('DATABASE_URL'):
 
 try:
     # Tentar aplicação principal direto do app.py
+    logger.info("Tentando importar create_app do app.py...")
     from app import create_app
+    logger.info("Import de create_app bem-sucedido")
+    
+    logger.info("Tentando criar app com config 'production'...")
     app = create_app('production')
     logger.info("Aplicacao principal (app.py) carregada com sucesso")
+    
+    # Testar se app tem rotas
+    logger.info(f"App criado com {len(app.url_map._rules)} rotas")
     
 except Exception as e:
     logger.warning(f"Aplicacao app.py falhou: {e}")
