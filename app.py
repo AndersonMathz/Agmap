@@ -367,18 +367,30 @@ def create_app(config_name='default'):
     # Rota principal - redireciona para login se não autenticado
     @app.route('/')
     def index():
+        print(f"[DEBUG] ===== INICIANDO FUNÇÃO INDEX =====")
         try:
+            print(f"[DEBUG] Verificando autenticação...")
             # Verificar se o usuário está autenticado
             is_authenticated = False
             if LOGIN_MANAGER_AVAILABLE:
+                print(f"[DEBUG] LOGIN_MANAGER_AVAILABLE: True")
                 try:
                     is_authenticated = current_user.is_authenticated
-                except:
+                    print(f"[DEBUG] current_user.is_authenticated: {is_authenticated}")
+                except Exception as auth_err:
+                    print(f"[DEBUG] Erro verificando current_user: {auth_err}")
                     is_authenticated = False
+            else:
+                print(f"[DEBUG] LOGIN_MANAGER_AVAILABLE: False")
+            
+            print(f"[DEBUG] is_authenticated final: {is_authenticated}")
             
             # Se não estiver autenticado, redirecionar para login
             if not is_authenticated:
+                print(f"[DEBUG] Não autenticado - redirecionando para login")
                 return redirect(url_for('login'))
+            
+            print(f"[DEBUG] Usuário autenticado - carregando template principal")
             
             # Se autenticado, tentar carregar template principal
             try:
@@ -442,7 +454,10 @@ def create_app(config_name='default'):
                     </body>
                     </html>
                     """
-        except:
+        except Exception as outer_e:
+            print(f"[ERROR] Exceção no nível mais alto da função index: {str(outer_e)}")
+            import traceback
+            print(f"[ERROR] Traceback completo: {traceback.format_exc()}")
             # Fallback completo se tudo falhar
             return """
             <!DOCTYPE html>
