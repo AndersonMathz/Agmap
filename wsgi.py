@@ -22,10 +22,18 @@ if not os.environ.get('DATABASE_URL'):
     logger.warning("DATABASE_URL não configurada, usando SQLite em memória")
 
 try:
-    # Tentar aplicação principal direto do app.py
-    logger.info("Tentando importar create_app do app.py...")
-    from app import create_app
-    logger.info("Import de create_app bem-sucedido")
+    # Tentar aplicação principal direto do app.py (arquivo raiz, não pasta app/)
+    logger.info("Tentando importar create_app do app.py raiz...")
+    
+    # Importar especificamente do arquivo app.py na raiz
+    import importlib.util
+    import os
+    spec = importlib.util.spec_from_file_location("app_main", os.path.join(os.path.dirname(__file__), "app.py"))
+    app_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(app_module)
+    
+    create_app = app_module.create_app
+    logger.info("Import de create_app do arquivo app.py bem-sucedido")
     
     logger.info("Tentando criar app com config 'production'...")
     app = create_app('production')
