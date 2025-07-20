@@ -348,7 +348,7 @@ def create_app(config_name='default'):
     @app.route('/logout')
     def logout():
         try:
-            if LOGIN_MANAGER_AVAILABLE and hasattr(current_user, 'username'):
+            if FLASK_LOGIN_AVAILABLE and hasattr(current_user, 'username'):
                 log_security_event('logout', f'Usuário {current_user.username} fez logout')
                 logout_user()
             else:
@@ -372,8 +372,8 @@ def create_app(config_name='default'):
             print(f"[DEBUG] Verificando autenticação...")
             # Verificar se o usuário está autenticado
             is_authenticated = False
-            if LOGIN_MANAGER_AVAILABLE:
-                print(f"[DEBUG] LOGIN_MANAGER_AVAILABLE: True")
+            if FLASK_LOGIN_AVAILABLE:
+                print(f"[DEBUG] FLASK_LOGIN_AVAILABLE: True")
                 try:
                     is_authenticated = current_user.is_authenticated
                     print(f"[DEBUG] current_user.is_authenticated: {is_authenticated}")
@@ -381,7 +381,7 @@ def create_app(config_name='default'):
                     print(f"[DEBUG] Erro verificando current_user: {auth_err}")
                     is_authenticated = False
             else:
-                print(f"[DEBUG] LOGIN_MANAGER_AVAILABLE: False")
+                print(f"[DEBUG] FLASK_LOGIN_AVAILABLE: False")
             
             print(f"[DEBUG] is_authenticated final: {is_authenticated}")
             
@@ -662,7 +662,7 @@ def create_app(config_name='default'):
     def update_feature(feature_id):
         try:
             # Verificar permissões se disponível
-            if LOGIN_MANAGER_AVAILABLE and hasattr(current_user, 'has_privilege'):
+            if FLASK_LOGIN_AVAILABLE and hasattr(current_user, 'has_privilege'):
                 if not current_user.has_privilege('canEditLayers'):
                     return jsonify({'error': 'Sem permissão para editar'}), 403
 
