@@ -16,6 +16,29 @@ try:
     FLASK_LOGIN_AVAILABLE = True
 except ImportError:
     FLASK_LOGIN_AVAILABLE = False
+    # Criar fallbacks para quando Flask-Login não estiver disponível
+    def login_required(f):
+        """Fallback para login_required quando Flask-Login não está disponível"""
+        from functools import wraps
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Por enquanto, permitir acesso (pode ser restringido depois)
+            return f(*args, **kwargs)
+        return decorated_function
+    
+    class DummyUser:
+        """Usuário dummy para fallback"""
+        def __init__(self):
+            self.is_authenticated = False
+            self.username = 'anonymous'
+    
+    current_user = DummyUser()
+    
+    def login_user(user):
+        pass
+    
+    def logout_user():
+        pass
 
 try:
     from flask_sqlalchemy import SQLAlchemy
