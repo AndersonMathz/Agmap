@@ -122,9 +122,23 @@ security_logger.setLevel(logging.WARNING)
 def create_app(config_name='default'):
     """Factory para criar aplicação Flask"""
     print(f"[DEBUG] Iniciando create_app com config: {config_name}")
-    app = Flask(__name__)
     
-    print("[DEBUG] App Flask criado")
+    # Definir caminhos absolutos para templates e static
+    import os
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    template_dir = os.path.join(basedir, 'templates')
+    static_dir = os.path.join(basedir, 'static')
+    
+    print(f"[DEBUG] Template dir: {template_dir}")
+    print(f"[DEBUG] Static dir: {static_dir}")
+    print(f"[DEBUG] Template existe: {os.path.exists(template_dir)}")
+    print(f"[DEBUG] Static existe: {os.path.exists(static_dir)}")
+    
+    app = Flask(__name__, 
+                template_folder=template_dir,
+                static_folder=static_dir)
+    
+    print("[DEBUG] App Flask criado com caminhos absolutos")
     
     # Configuração
     app.config.from_object(config[config_name])
@@ -359,8 +373,17 @@ def create_app(config_name='default'):
             
             # Se autenticado, tentar carregar template principal
             try:
+                print(f"[DEBUG] Tentando carregar template index.html")
+                print(f"[DEBUG] Template folder: {app.template_folder}")
+                
+                # Verificar se o template existe
+                template_path = os.path.join(app.template_folder, 'index.html')
+                print(f"[DEBUG] Caminho completo do template: {template_path}")
+                print(f"[DEBUG] Template existe: {os.path.exists(template_path)}")
+                
                 return render_template('index.html')
-            except:
+            except Exception as e:
+                print(f"[ERROR] Falha ao carregar template index.html: {str(e)}")
                 # Fallback se template não existir
                     return """
                     <!DOCTYPE html>
