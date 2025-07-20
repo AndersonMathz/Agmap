@@ -22,29 +22,73 @@ if not os.environ.get('DATABASE_URL'):
     logger.warning("DATABASE_URL não configurada, usando SQLite em memória")
 
 try:
-    # Tentar importar e criar app
+    # Tentar primeiro a versão completa
     from app import create_app
     app = create_app('production')
-    logger.info("✅ Aplicação criada com sucesso")
+    logger.info("✅ Aplicação completa criada com sucesso")
+    
+except Exception as e:
+    logger.warning(f"⚠️ Aplicação completa falhou: {e}")
+    try:
+        # Tentar versão simplificada
+        from app_simple import create_simple_app
+        app = create_simple_app()
+        logger.info("✅ Aplicação simplificada criada com sucesso")
+    except Exception as e2:
+        logger.error(f"❌ Aplicação simplificada também falhou: {e2}")
+        raise Exception(f"Ambas as versões falharam: {e} | {e2}")
     
 except ImportError as e:
     logger.error(f"❌ Erro de import: {e}")
-    # Fallback mais simples
+    # Fallback mais informativo
     try:
-        from flask import Flask
+        from flask import Flask, jsonify
         app = Flask(__name__)
         
         @app.route('/')
         def hello():
-            return "WEBAG está inicializando... Verifique os logs."
+            return f"""
+            <h1>🚀 WEBAG Professional</h1>
+            <p><strong>Status:</strong> Inicializando com fallback</p>
+            <p><strong>Erro:</strong> {str(e)}</p>
+            <p><strong>Solução:</strong> Verificando configurações...</p>
+            <hr>
+            <h3>Informações do Sistema:</h3>
+            <ul>
+                <li>DATABASE_URL: {'✅ Configurada' if os.environ.get('DATABASE_URL') else '❌ Não configurada'}</li>
+                <li>SECRET_KEY: {'✅ Configurada' if os.environ.get('SECRET_KEY') else '❌ Não configurada'}</li>
+                <li>FLASK_ENV: {os.environ.get('FLASK_ENV', 'Não definida')}</li>
+            </ul>
+            <p><a href="/health">Verificar Health Check</a></p>
+            <p><a href="/debug">Informações de Debug</a></p>
+            """
             
         @app.route('/health')
         def health():
-            return {"status": "ok", "message": "Aplicação rodando com fallback"}
+            return jsonify({
+                "status": "fallback", 
+                "message": "Aplicação rodando com fallback",
+                "error": str(e),
+                "env_vars": {
+                    "DATABASE_URL": "configured" if os.environ.get('DATABASE_URL') else "missing",
+                    "SECRET_KEY": "configured" if os.environ.get('SECRET_KEY') else "missing",
+                    "FLASK_ENV": os.environ.get('FLASK_ENV', "not_set")
+                }
+            })
             
-        logger.info("⚠️ Usando aplicação de fallback")
+        @app.route('/debug')
+        def debug():
+            import sys
+            return jsonify({
+                "python_version": sys.version,
+                "path": sys.path[:5],  # Primeiros 5 paths
+                "environment": dict(os.environ),
+                "error": str(e)
+            })
+            
+        logger.info("⚠️ Usando aplicação de fallback com debug")
     except Exception as e2:
-        logger.error(f"❌ Erro crítico: {e2}")
+        logger.error(f"❌ Erro crítico no fallback: {e2}")
         raise
 
 except Exception as e:
