@@ -427,7 +427,7 @@ def create_app(config_name='default'):
                     if not db_file.startswith('/'):
                         db_file = os.path.join(os.getcwd(), db_file)
                     with sqlite3.connect(db_file) as conn:
-                    cursor = conn.cursor()
+                        cursor = conn.cursor()
                     cursor.execute('''
                         CREATE TABLE IF NOT EXISTS map_features (
                             id TEXT PRIMARY KEY,
@@ -484,7 +484,7 @@ def create_app(config_name='default'):
                     if not db_file.startswith('/'):
                         db_file = os.path.join(os.getcwd(), db_file)
                     with sqlite3.connect(db_file) as conn:
-                    cursor = conn.cursor()
+                        cursor = conn.cursor()
                     cursor.execute('''
                         INSERT OR REPLACE INTO map_features 
                         (id, feature_type, geometry, properties, created_by)
