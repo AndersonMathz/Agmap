@@ -22,30 +22,30 @@ if not os.environ.get('DATABASE_URL'):
     logger.warning("DATABASE_URL não configurada, usando SQLite em memória")
 
 try:
-    # Tentar aplicação principal garantida
-    from main_app import app
-    logger.info("✅ Aplicação principal (main_app.py) carregada com sucesso")
+    # Tentar aplicação principal direto do app.py
+    from app import create_app
+    app = create_app('production')
+    logger.info("Aplicacao principal (app.py) carregada com sucesso")
     
 except Exception as e:
-    logger.warning(f"⚠️ Aplicação completa falhou: {e}")
+    logger.warning(f"Aplicacao app.py falhou: {e}")
     try:
-        # Tentar versão simplificada
-        from app_simple import create_simple_app
-        app = create_simple_app()
-        logger.info("✅ Aplicação simplificada criada com sucesso")
+        # Tentar aplicação principal garantida (main_app.py)
+        from main_app import app
+        logger.info("Aplicacao main_app.py carregada como fallback")
     except Exception as e2:
-        logger.warning(f"⚠️ Aplicação simplificada falhou: {e2}")
+        logger.warning(f"Aplicacao main_app.py falhou: {e2}")
         try:
-            # Tentar versão mínima (sem SQLAlchemy)
-            from app_minimal import create_minimal_app
-            app = create_minimal_app()
-            logger.info("✅ Aplicação mínima criada com sucesso")
+            # Tentar versão simplificada
+            from app_simple import create_simple_app
+            app = create_simple_app()
+            logger.info("Aplicacao simplificada criada com sucesso")
         except Exception as e3:
-            logger.error(f"❌ Todas as versões falharam: {e} | {e2} | {e3}")
-            raise Exception(f"Todas as versões falharam")
+            logger.error(f"Todas as versoes falharam: {e} | {e2} | {e3}")
+            raise Exception(f"Todas as versoes falharam")
     
 except ImportError as e:
-    logger.error(f"❌ Erro de import: {e}")
+    logger.error(f"Erro de import: {e}")
     # Fallback mais informativo
     try:
         from flask import Flask, jsonify
