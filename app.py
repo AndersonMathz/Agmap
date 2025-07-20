@@ -425,7 +425,7 @@ def create_app(config_name='default'):
             except Exception as e:
                 print(f"[ERROR] Falha ao carregar template index.html: {str(e)}")
                 # Fallback se template não existir
-                    return """
+                return """
                     <!DOCTYPE html>
                     <html>
                     <head>
