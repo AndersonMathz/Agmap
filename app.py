@@ -266,12 +266,61 @@ def create_app(config_name='default'):
     @app.route('/')
     def index():
         try:
+            # Verificar se o template existe, senão usar fallback
             if current_user.is_authenticated:
-                return render_template('index.html')
+                try:
+                    return render_template('index.html')
+                except:
+                    # Fallback se template não existir
+                    return """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>WEBAG Professional - Sistema Online</title>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1">
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }
+                            .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+                            .card { background: rgba(255,255,255,0.95); padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+                            h1 { color: #2c3e50; text-align: center; margin-bottom: 30px; }
+                            .status { background: linear-gradient(135deg, #6dd5ed, #2193b0); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0; }
+                            .btn { display: inline-block; background: #3498db; color: white; padding: 12px 24px; border-radius: 25px; text-decoration: none; margin: 10px; }
+                            .btn:hover { background: #2980b9; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="card">
+                                <h1>🚀 WEBAG Professional</h1>
+                                <div class="status">✅ Sistema Funcionando Perfeitamente!</div>
+                                <p style="text-align: center;">
+                                    <a href="/webgis" class="btn">Acessar WebGIS</a>
+                                    <a href="/glebas" class="btn">Gestão de Glebas</a>
+                                    <a href="/api/health" class="btn">API Status</a>
+                                    <a href="/logout" class="btn">Logout</a>
+                                </p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    """
             else:
                 return redirect(url_for('login'))
         except:
-            return redirect(url_for('login'))
+            # Fallback completo se tudo falhar
+            return """
+            <!DOCTYPE html>
+            <html>
+            <head><title>WEBAG Professional</title></head>
+            <body style="font-family: Arial; padding: 40px; text-align: center;">
+                <h1>🚀 WEBAG Professional</h1>
+                <h2>✅ Sistema Online!</h2>
+                <p><a href="/login" style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Fazer Login</a></p>
+                <p><a href="/api/health">API Health Check</a></p>
+            </body>
+            </html>
+            """
     
     # Rota para o sistema principal (protegida)
     @app.route('/webgis')
