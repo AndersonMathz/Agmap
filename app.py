@@ -292,7 +292,26 @@ def create_app(config_name='default'):
                 log_security_event('login_failed', f'Tentativa de login falhou para {username}')
                 return jsonify({'error': 'Usuário ou senha incorretos'}), 401
         
-        return render_template('login.html')
+        try:
+            return render_template('login.html')
+        except Exception as e:
+            print(f"Erro carregando template login.html: {e}")
+            # Fallback simples para debug
+            return f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>WEBAG Login (DEBUG)</title></head>
+            <body>
+                <h1>WEBAG Login (Template Error)</h1>
+                <p>Erro: {e}</p>
+                <form method="POST">
+                    <input type="text" name="username" placeholder="Usuario" required>
+                    <input type="password" name="password" placeholder="Senha" required>
+                    <button type="submit">Entrar</button>
+                </form>
+            </body>
+            </html>
+            """
     
     @app.route('/logout')
     def logout():
@@ -317,12 +336,23 @@ def create_app(config_name='default'):
     @app.route('/')
     def index():
         try:
-            # Verificar se o template existe, senão usar fallback
-            if current_user.is_authenticated:
+            # Verificar se o usuário está autenticado
+            is_authenticated = False
+            if LOGIN_MANAGER_AVAILABLE:
                 try:
-                    return render_template('index.html')
+                    is_authenticated = current_user.is_authenticated
                 except:
-                    # Fallback se template não existir
+                    is_authenticated = False
+            
+            # Se não estiver autenticado, redirecionar para login
+            if not is_authenticated:
+                return redirect(url_for('login'))
+            
+            # Se autenticado, tentar carregar template principal
+            try:
+                return render_template('index.html')
+            except:
+                # Fallback se template não existir
                     return """
                     <!DOCTYPE html>
                     <html>
@@ -356,8 +386,6 @@ def create_app(config_name='default'):
                     </body>
                     </html>
                     """
-            else:
-                return redirect(url_for('login'))
         except:
             # Fallback completo se tudo falhar
             return """
