@@ -667,13 +667,66 @@ def create_app(config_name='default'):
                             'status': 'success'
                         })
                 else:
-                    # Para PostgreSQL ou outros bancos
-                    logger.warning("[FEATURES] PostgreSQL não implementado ainda, retornando lista vazia")
-                    return jsonify({
-                        'features': [],
-                        'total': 0,
-                        'status': 'no_database'
-                    })
+                    # Para PostgreSQL ou outros bancos - implementar corretamente
+                    logger.debug("[FEATURES] Usando PostgreSQL/SQLAlchemy")
+                    
+                    # Criar tabela se não existir
+                    try:
+                        db.create_all()
+                    except Exception as create_error:
+                        logger.debug(f"[FEATURES] Erro criando tabelas: {create_error}")
+                    
+                    # Buscar features usando raw SQL se models não estão disponíveis
+                    try:
+                        if not MODELS_AVAILABLE:
+                            # Usar raw SQL para PostgreSQL
+                            from sqlalchemy import text
+                            query = text("""
+                                SELECT id, feature_type, geometry, properties, created_at
+                                FROM map_features 
+                                WHERE created_by = :username
+                                ORDER BY created_at DESC
+                            """)
+                            result = db.session.execute(query, {'username': current_user.username})
+                            
+                            features = []
+                            for row in result:
+                                try:
+                                    feature = {
+                                        'id': row[0],
+                                        'type': row[1], 
+                                        'geometry': json.loads(row[2]) if row[2] else None,
+                                        'properties': json.loads(row[3]) if row[3] else {},
+                                        'created_at': str(row[4]) if row[4] else None
+                                    }
+                                    features.append(feature)
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"[FEATURES] Erro decodificando feature {row[0]}: {e}")
+                                    continue
+                            
+                            logger.debug(f"[FEATURES] PostgreSQL - Encontradas {len(features)} features")
+                            return jsonify({
+                                'features': features,
+                                'total': len(features),
+                                'status': 'success'
+                            })
+                        else:
+                            # Usar models se disponível
+                            features = GeoFeature.query.filter_by(created_by=current_user.username).all()
+                            return jsonify({
+                                'features': [f.to_dict() for f in features],
+                                'total': len(features),
+                                'status': 'success'
+                            })
+                            
+                    except Exception as pg_error:
+                        logger.warning(f"[FEATURES] Erro no PostgreSQL: {pg_error}")
+                        # Retornar lista vazia se falhar
+                        return jsonify({
+                            'features': [],
+                            'total': 0,
+                            'status': 'fallback'
+                        })
                     
             except Exception as e:
                 logger.error(f"[FEATURES] Erro carregando features: {str(e)}")
@@ -727,6 +780,74 @@ def create_app(config_name='default'):
                         
                         conn.commit()
                         logger.debug(f"[FEATURES] Feature {feature_id} salva com sucesso")
+                else:
+                    # Para PostgreSQL ou outros bancos
+                    logger.debug("[FEATURES] Usando PostgreSQL para salvamento")
+                    
+                    # Criar tabela se não existir
+                    try:
+                        db.create_all()
+                    except Exception as create_error:
+                        logger.debug(f"[FEATURES] Erro criando tabelas: {create_error}")
+                    
+                    # Salvar usando raw SQL para PostgreSQL
+                    try:
+                        if not MODELS_AVAILABLE:
+                            # Usar raw SQL para PostgreSQL
+                            from sqlalchemy import text
+                            
+                            # Criar tabela se não existir
+                            create_table_query = text("""
+                                CREATE TABLE IF NOT EXISTS map_features (
+                                    id TEXT PRIMARY KEY,
+                                    feature_type TEXT NOT NULL,
+                                    geometry TEXT NOT NULL,
+                                    properties TEXT,
+                                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                    created_by TEXT
+                                )
+                            """)
+                            db.session.execute(create_table_query)
+                            
+                            # Inserir ou atualizar feature
+                            upsert_query = text("""
+                                INSERT INTO map_features 
+                                (id, feature_type, geometry, properties, created_by)
+                                VALUES (:id, :feature_type, :geometry, :properties, :created_by)
+                                ON CONFLICT (id) DO UPDATE SET
+                                    feature_type = EXCLUDED.feature_type,
+                                    geometry = EXCLUDED.geometry,
+                                    properties = EXCLUDED.properties,
+                                    created_by = EXCLUDED.created_by
+                            """)
+                            
+                            db.session.execute(upsert_query, {
+                                'id': feature_id,
+                                'feature_type': feature_type,
+                                'geometry': geometry,
+                                'properties': properties,
+                                'created_by': current_user.username
+                            })
+                            
+                            db.session.commit()
+                            logger.debug(f"[FEATURES] Feature {feature_id} salva no PostgreSQL")
+                        else:
+                            # Usar models se disponível
+                            feature = GeoFeature(
+                                id=feature_id,
+                                feature_type=feature_type,
+                                geometry=geometry,
+                                properties=properties,
+                                created_by=current_user.username
+                            )
+                            db.session.merge(feature)  # Usar merge para upsert
+                            db.session.commit()
+                            logger.debug(f"[FEATURES] Feature {feature_id} salva usando models")
+                            
+                    except Exception as pg_error:
+                        logger.error(f"[FEATURES] Erro salvando no PostgreSQL: {pg_error}")
+                        db.session.rollback()
+                        return jsonify({'error': f'Erro salvando feature: {str(pg_error)}'}), 500
                 
                 return jsonify({
                     'id': feature_id,
