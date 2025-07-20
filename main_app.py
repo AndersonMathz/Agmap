@@ -26,25 +26,25 @@ try:
             # Tentar importar enhanced models primeiro
             from app.models.enhanced_models import init_enhanced_database, SQLALCHEMY_AVAILABLE
             if SQLALCHEMY_AVAILABLE:
-                print("🔧 Inicializando banco enhanced...")
+                print("Inicializando banco enhanced...")
                 init_enhanced_database()
-                print("✅ Banco enhanced inicializado!")
+                print("Banco enhanced inicializado!")
             else:
                 # Fallback para banco simples
                 from app.models.models import init_users, db
                 if db:
                     db.create_all()
                     init_users()
-                    print("✅ Banco simples inicializado!")
+                    print("Banco simples inicializado!")
         except Exception as e:
-            print(f"⚠️ Erro na inicialização do banco: {e}")
+            print(f"Erro na inicializacao do banco: {e}")
             # Força criação das tabelas básicas
             try:
                 if hasattr(app_module, 'db') and app_module.db:
                     app_module.db.create_all()
-                    print("✅ Tabelas básicas criadas!")
+                    print("Tabelas basicas criadas!")
             except Exception as e2:
-                print(f"❌ Erro crítico no banco: {e2}")
+                print(f"Erro critico no banco: {e2}")
     
 except Exception as e:
     print(f"Erro ao carregar app.py: {e}")

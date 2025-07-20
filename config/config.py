@@ -58,7 +58,7 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SECURE = True
     
     # Configurações específicas para Render
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or Config.SQLALCHEMY_DATABASE_URI
     
     # Criar diretórios necessários
     @staticmethod

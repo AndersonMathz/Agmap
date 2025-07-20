@@ -41,8 +41,17 @@ except ImportError:
 try:
     from config.config import config
     CONFIG_AVAILABLE = True
-except ImportError:
+    print(f"Config carregado: {config}")
+except ImportError as e:
     CONFIG_AVAILABLE = False
+    print(f"Erro importando config: {e}")
+    # Fallback config
+    class FallbackConfig:
+        SECRET_KEY = 'fallback-secret'
+        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///instance/webgis.db'
+        SQLALCHEMY_TRACK_MODIFICATIONS = False
+        DEBUG = False
+    config = {'production': FallbackConfig, 'default': FallbackConfig}
 
 # Inicializar o banco de dados
 if SQLALCHEMY_AVAILABLE:
@@ -118,7 +127,8 @@ def create_app(config_name='default'):
     app.config.from_object(config[config_name])
     
     # Corrigir caminho do banco para usar instance folder
-    if 'sqlite:///' in app.config['SQLALCHEMY_DATABASE_URI'] and not app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite:////'):
+    db_uri = app.config.get('SQLALCHEMY_DATABASE_URI')
+    if db_uri and 'sqlite:///' in db_uri and not db_uri.startswith('sqlite:////'):
         # Ajustar caminho para usar instance folder
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'webgis.db')
 
