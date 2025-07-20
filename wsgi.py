@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
 """
-WSGI entry point para produção
+WSGI entry point para produção no Render
 """
 
 import os
-from app import create_app
+import sys
 
-# Configurar ambiente
+# Adicionar diretório atual ao path
+sys.path.insert(0, os.path.dirname(__file__))
+
+# Configurar ambiente para produção
 os.environ.setdefault('FLASK_ENV', 'production')
 
-# Criar aplicação
-app = create_app('production')
+# Importar factory function
+try:
+    from app import create_app
+    app = create_app('production')
+except ImportError:
+    # Fallback se houver problemas de import
+    import app as app_module
+    app = app_module.app
 
+# Configuração para Render
 if __name__ == '__main__':
-    app.run() 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False) 
