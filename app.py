@@ -182,10 +182,54 @@ def create_app(config_name='default'):
     if db:
         with app.app_context():
             try:
+                logger.info("[DATABASE] Iniciando criação de tabelas...")
+                
+                # Verificar modelos disponíveis
+                from sqlalchemy import inspect
+                inspector = inspect(db.engine)
+                existing_tables = inspector.get_table_names()
+                logger.info(f"[DATABASE] Tabelas existentes: {existing_tables}")
+                
                 db.create_all()
-                # Tabelas do banco de dados criadas/verificadas
+                logger.info("[DATABASE] db.create_all() executado")
+                
+                # Verificar novamente após create_all
+                inspector = inspect(db.engine)
+                final_tables = inspector.get_table_names()
+                logger.info(f"[DATABASE] Tabelas após create_all: {final_tables}")
+                
+                # Verificar especificamente se a tabela glebas foi criada
+                if 'glebas' in final_tables:
+                    logger.info("[DATABASE] ✅ Tabela glebas criada com sucesso")
+                else:
+                    logger.warning("[DATABASE] ⚠️ Tabela glebas não foi criada")
+                
+                # Criar tabela map_features se não existir (para SQLite)
+                db_path = os.environ.get('DATABASE_URL', 'sqlite:///instance/webgis.db')
+                if db_path.startswith('sqlite:///'):
+                    db_file = db_path.replace('sqlite:///', '')
+                    if not db_file.startswith('/'):
+                        db_file = os.path.join(os.getcwd(), db_file)
+                    
+                    logger.info(f"[DATABASE] Verificando/criando tabela map_features em: {db_file}")
+                    import sqlite3
+                    with sqlite3.connect(db_file) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            CREATE TABLE IF NOT EXISTS map_features (
+                                id TEXT PRIMARY KEY,
+                                feature_type TEXT NOT NULL,
+                                geometry TEXT NOT NULL,
+                                properties TEXT,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                created_by TEXT
+                            )
+                        ''')
+                        conn.commit()
+                        logger.info("[DATABASE] ✅ Tabela map_features verificada/criada")
                         
             except Exception as e:
+                logger.error(f"[DATABASE] ❌ Erro ao criar tabelas: {e}")
                 print(f"❌ Erro ao criar tabelas: {e}")
     
     # Se enhanced models não estão disponíveis, criar sistema de fallback
@@ -526,59 +570,90 @@ def create_app(config_name='default'):
     @app.route('/api/features', methods=['GET', 'POST'])
     @login_required
     def manage_features():
+        logger.debug(f"[FEATURES] Método: {request.method}, Usuário: {current_user.username}")
+        
         if request.method == 'GET':
             # Buscar features do banco ou usar sistema simplificado
             try:
+                logger.debug("[FEATURES] Iniciando busca de features...")
+                
                 # Usar banco correto baseado na configuração
                 db_path = os.environ.get('DATABASE_URL', 'sqlite:///instance/webgis.db')
+                logger.debug(f"[FEATURES] Database path: {db_path}")
+                
                 if db_path.startswith('sqlite:///'):
                     db_file = db_path.replace('sqlite:///', '')
                     if not db_file.startswith('/'):
                         db_file = os.path.join(os.getcwd(), db_file)
+                    
+                    logger.debug(f"[FEATURES] Conectando ao SQLite: {db_file}")
+                    
                     with sqlite3.connect(db_file) as conn:
                         cursor = conn.cursor()
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS map_features (
-                            id TEXT PRIMARY KEY,
-                            feature_type TEXT NOT NULL,
-                            geometry TEXT NOT NULL,
-                            properties TEXT,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            created_by TEXT
-                        )
-                    ''')
-                    
-                    cursor.execute('''
-                        SELECT id, feature_type, geometry, properties, created_at
-                        FROM map_features 
-                        WHERE created_by = ?
-                        ORDER BY created_at DESC
-                    ''', (current_user.username,))
-                    
-                    features = []
-                    for row in cursor.fetchall():
-                        feature = {
-                            'id': row[0],
-                            'type': row[1],
-                            'geometry': json.loads(row[2]) if row[2] else None,
-                            'properties': json.loads(row[3]) if row[3] else {},
-                            'created_at': row[4]
-                        }
-                        features.append(feature)
-                    
+                        
+                        # Criar tabela se não existir
+                        cursor.execute('''
+                            CREATE TABLE IF NOT EXISTS map_features (
+                                id TEXT PRIMARY KEY,
+                                feature_type TEXT NOT NULL,
+                                geometry TEXT NOT NULL,
+                                properties TEXT,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                created_by TEXT
+                            )
+                        ''')
+                        
+                        # Buscar features do usuário
+                        cursor.execute('''
+                            SELECT id, feature_type, geometry, properties, created_at
+                            FROM map_features 
+                            WHERE created_by = ?
+                            ORDER BY created_at DESC
+                        ''', (current_user.username,))
+                        
+                        features = []
+                        for row in cursor.fetchall():
+                            try:
+                                feature = {
+                                    'id': row[0],
+                                    'type': row[1],
+                                    'geometry': json.loads(row[2]) if row[2] else None,
+                                    'properties': json.loads(row[3]) if row[3] else {},
+                                    'created_at': row[4]
+                                }
+                                features.append(feature)
+                            except json.JSONDecodeError as je:
+                                logger.warning(f"[FEATURES] Erro decodificando feature {row[0]}: {je}")
+                                continue
+                        
+                        logger.debug(f"[FEATURES] Encontradas {len(features)} features")
+                        
+                        return jsonify({
+                            'features': features,
+                            'total': len(features),
+                            'status': 'success'
+                        })
+                else:
+                    # Para PostgreSQL ou outros bancos
+                    logger.warning("[FEATURES] PostgreSQL não implementado ainda, retornando lista vazia")
                     return jsonify({
-                        'features': features,
-                        'total': len(features)
+                        'features': [],
+                        'total': 0,
+                        'status': 'no_database'
                     })
                     
             except Exception as e:
+                logger.error(f"[FEATURES] Erro carregando features: {str(e)}")
                 return jsonify({'error': f'Erro carregando features: {str(e)}'}), 500
         
         elif request.method == 'POST':
             # Salvar nova feature
             try:
+                logger.debug("[FEATURES] Iniciando salvamento de feature...")
+                
                 data = request.get_json()
                 if not data or not data.get('geometry'):
+                    logger.warning("[FEATURES] Dados da feature são obrigatórios")
                     return jsonify({'error': 'Dados da feature são obrigatórios'}), 400
                 
                 feature_id = data.get('id', f'feature_{int(time.time())}')
@@ -586,21 +661,39 @@ def create_app(config_name='default'):
                 geometry = json.dumps(data['geometry'])
                 properties = json.dumps(data.get('properties', {}))
                 
+                logger.debug(f"[FEATURES] Salvando feature ID: {feature_id}, Tipo: {feature_type}")
+                
                 # Usar banco correto baseado na configuração
                 db_path = os.environ.get('DATABASE_URL', 'sqlite:///instance/webgis.db')
                 if db_path.startswith('sqlite:///'):
                     db_file = db_path.replace('sqlite:///', '')
                     if not db_file.startswith('/'):
                         db_file = os.path.join(os.getcwd(), db_file)
+                    
                     with sqlite3.connect(db_file) as conn:
                         cursor = conn.cursor()
-                    cursor.execute('''
-                        INSERT OR REPLACE INTO map_features 
-                        (id, feature_type, geometry, properties, created_by)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (feature_id, feature_type, geometry, properties, current_user.username))
-                    
-                    conn.commit()
+                        
+                        # Criar tabela se não existir
+                        cursor.execute('''
+                            CREATE TABLE IF NOT EXISTS map_features (
+                                id TEXT PRIMARY KEY,
+                                feature_type TEXT NOT NULL,
+                                geometry TEXT NOT NULL,
+                                properties TEXT,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                created_by TEXT
+                            )
+                        ''')
+                        
+                        # Inserir feature
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO map_features 
+                            (id, feature_type, geometry, properties, created_by)
+                            VALUES (?, ?, ?, ?, ?)
+                        ''', (feature_id, feature_type, geometry, properties, current_user.username))
+                        
+                        conn.commit()
+                        logger.debug(f"[FEATURES] Feature {feature_id} salva com sucesso")
                 
                 return jsonify({
                     'id': feature_id,
@@ -608,6 +701,7 @@ def create_app(config_name='default'):
                 }), 201
                 
             except Exception as e:
+                logger.error(f"[FEATURES] Erro salvando feature: {str(e)}")
                 return jsonify({'error': f'Erro salvando feature: {str(e)}'}), 500
     
     @app.route('/api/features/<feature_id>', methods=['DELETE'])
