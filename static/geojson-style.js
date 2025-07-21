@@ -543,15 +543,20 @@ class GeojsonStyleInterface {
                     if (!featureData && layer.feature) {
                         featureData = {
                             id: featureId,
-                            type: layer.feature.geometry.type,
+                            type: layer.feature.geometry?.type || 'Unknown',
                             layer: layer,
                             properties: layer.feature.properties || {},
-                            geometry: layer.feature.geometry
+                            geometry: layer.feature.geometry || {}
                         };
                         this.features.set(featureId, featureData);
                     }
                     
                     if (featureData) {
+                        // Garantir que type nunca seja undefined
+                        if (!featureData.type) {
+                            featureData.type = 'Unknown';
+                        }
+                        
                         const layerDiv = document.createElement('div');
                         layerDiv.className = 'layer-item';
                         
@@ -615,10 +620,14 @@ class GeojsonStyleInterface {
     getLayerIcon(type) {
         const icons = {
             'marker': 'map-marker-alt',
+            'Point': 'map-marker-alt',
             'polyline': 'project-diagram',
+            'LineString': 'project-diagram',
             'polygon': 'draw-polygon',
+            'Polygon': 'draw-polygon',
             'rectangle': 'square',
-            'circle': 'circle'
+            'circle': 'circle',
+            'Unknown': 'map-marked-alt'
         };
         return icons[type] || 'map-marked-alt';
     }
