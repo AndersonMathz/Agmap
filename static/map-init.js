@@ -207,7 +207,7 @@ async function autoLoadFeatures() {
                 }
 
                 if (layer) {
-                    // Configurar feature
+                    // Configurar feature com ID único
                     layer._featureId = feature.id;
                     layer.feature = {
                         type: 'Feature',
@@ -215,12 +215,21 @@ async function autoLoadFeatures() {
                         properties: feature.properties || {}
                     };
 
+                    // Adicionar eventos de clique para edição
+                    layer.on('click', function(e) {
+                        console.log('🖱️ Clique na feature auto-carregada:', layer._featureId);
+                        if (window.geojsonInterface) {
+                            window.geojsonInterface.selectFeature(layer._featureId);
+                        }
+                    });
+
                     // Adicionar ao mapa
                     window.drawnItems.addLayer(layer);
 
                     // Popup com informações
                     const name = feature.properties?.name || feature.id;
-                    layer.bindPopup(`<b>${name}</b><br>${feature.properties?.description || ''}`);
+                    const description = feature.properties?.description || feature.properties?.['gleba-nome'] || '';
+                    layer.bindPopup(`<b>${name}</b><br>${description}`);
 
                     count++;
                 }
@@ -229,19 +238,46 @@ async function autoLoadFeatures() {
             }
         }
 
-        // Atualizar interface de features
-        if (window.geojsonInterface && window.geojsonInterface.features) {
-            window.geojsonInterface.features = new Map();
-            window.drawnItems.eachLayer(function(layer) {
-                if (layer._featureId && layer.feature) {
-                    window.geojsonInterface.features.set(layer._featureId, {
-                        id: layer._featureId,
-                        geometry: layer.feature.geometry,
-                        properties: layer.feature.properties
+        // Garantir que geojsonInterface existe
+        if (!window.geojsonInterface) {
+            console.log('🔧 Inicializando geojsonInterface...');
+            window.geojsonInterface = {
+                features: new Map(),
+                selectFeature: function(featureId) {
+                    console.log('🎯 Selecionando feature:', featureId);
+                    const layer = this.findLayerById(featureId);
+                    if (layer) {
+                        this.openModal(layer);
+                    }
+                },
+                findLayerById: function(featureId) {
+                    let foundLayer = null;
+                    window.drawnItems.eachLayer(function(layer) {
+                        if (layer._featureId === featureId) {
+                            foundLayer = layer;
+                        }
                     });
+                    return foundLayer;
+                },
+                openModal: function(layer) {
+                    console.log('📂 Abrindo modal para:', layer._featureId);
+                    // Implementação básica - será sobrescrita pelo geojson-style.js
                 }
-            });
+            };
         }
+
+        // Atualizar interface de features
+        window.geojsonInterface.features = new Map();
+        window.drawnItems.eachLayer(function(layer) {
+            if (layer._featureId && layer.feature) {
+                window.geojsonInterface.features.set(layer._featureId, {
+                    id: layer._featureId,
+                    geometry: layer.feature.geometry,
+                    properties: layer.feature.properties,
+                    layer: layer
+                });
+            }
+        });
 
         // Atualizar lista de camadas
         updateLayerPanel();
@@ -255,31 +291,80 @@ async function autoLoadFeatures() {
 
 // Função para atualizar painel de camadas
 function updateLayerPanel() {
+    // Aguardar a interface geojson ser totalmente carregada
+    setTimeout(() => {
+        if (window.geojsonInterface && window.geojsonInterface.createLayerPanelEntry) {
+            console.log('🔄 Atualizando painel com interface completa...');
+            window.geojsonInterface.createLayerPanelEntry();
+        } else {
+            console.log('🔄 Criando painel básico...');
+            createBasicLayerPanel();
+        }
+    }, 500);
+}
+
+// Função básica para criar painel de camadas (fallback)
+function createBasicLayerPanel() {
     const layerControls = document.getElementById('layer-controls');
     if (!layerControls) return;
 
     layerControls.innerHTML = '';
 
     window.drawnItems.eachLayer(function(layer) {
-        if (layer.feature) {
-            const name = layer.feature.properties?.name || layer._featureId;
+        if (layer.feature && layer._featureId) {
+            const name = layer.feature.properties?.name || 
+                        layer.feature.properties?.['gleba-nome'] || 
+                        layer._featureId;
             const div = document.createElement('div');
             div.className = 'layer-item';
+            div.style.cssText = `
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+                padding: 12px;
+                margin-bottom: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                transition: all 0.3s ease;
+                cursor: pointer;
+            `;
             div.innerHTML = `
-                <div class="layer-info">
-                    <span class="layer-name">${name}</span>
-                    <small class="layer-type">${layer.feature.geometry.type}</small>
-                </div>
-                <div class="layer-controls">
-                    <button onclick="window.geojsonInterface?.selectFeature('${layer._featureId}')" class="layer-edit-btn">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="color: white; font-weight: 500;">${name}</div>
+                        <small style="color: #888;">${layer.feature.geometry.type}</small>
+                    </div>
+                    <button onclick="editFeatureFromPanel('${layer._featureId}')" 
+                            style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer;">
                         <i class="fas fa-edit"></i>
                     </button>
                 </div>
             `;
+            
+            // Adicionar evento de clique
+            div.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
+                    layer.fire('click');
+                }
+            });
+            
             layerControls.appendChild(div);
         }
     });
 }
+
+// Função global para editar feature pelo painel
+window.editFeatureFromPanel = function(featureId) {
+    console.log('🎯 Editando feature do painel:', featureId);
+    if (window.geojsonInterface && window.geojsonInterface.selectFeature) {
+        window.geojsonInterface.selectFeature(featureId);
+    } else {
+        // Fallback: encontrar layer e disparar clique
+        window.drawnItems.eachLayer(function(layer) {
+            if (layer._featureId === featureId) {
+                layer.fire('click');
+            }
+        });
+    }
+};
 
 // Auto-inicialização
 document.addEventListener('DOMContentLoaded', function() {

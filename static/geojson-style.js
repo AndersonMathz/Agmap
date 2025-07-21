@@ -616,10 +616,37 @@ class GeojsonStyleInterface {
         }
     }
 
-    selectFeature(layer) {
-        console.log('🎯 Selecionando feature:', layer._featureId);
-        this.selectedFeature = layer;
-        this.openModal(layer);
+    selectFeature(layerOrId) {
+        let layer;
+        
+        // Se recebeu um ID string, encontrar o layer
+        if (typeof layerOrId === 'string') {
+            console.log('🎯 Selecionando feature por ID:', layerOrId);
+            
+            // Procurar no mapa do geojsonInterface
+            const featureData = this.features.get(layerOrId);
+            if (featureData && featureData.layer) {
+                layer = featureData.layer;
+            } else {
+                // Fallback: procurar diretamente no drawnItems
+                window.drawnItems.eachLayer(function(l) {
+                    if (l._featureId === layerOrId) {
+                        layer = l;
+                    }
+                });
+            }
+        } else {
+            // Se recebeu o layer diretamente
+            layer = layerOrId;
+            console.log('🎯 Selecionando feature:', layer._featureId);
+        }
+        
+        if (layer) {
+            this.selectedFeature = layer;
+            this.openModal(layer);
+        } else {
+            console.error('❌ Layer não encontrado para:', layerOrId);
+        }
     }
 
     openModal(layer) {
@@ -632,7 +659,21 @@ class GeojsonStyleInterface {
         }
 
         const featureId = layer._featureId;
-        const featureData = this.features.get(featureId);
+        let featureData = this.features.get(featureId);
+        
+        // Se não encontrou nos dados locais, criar a partir do layer
+        if (!featureData && layer.feature) {
+            console.log('🔧 Criando dados da feature a partir do layer');
+            featureData = {
+                id: featureId,
+                geometry: layer.feature.geometry,
+                properties: layer.feature.properties || {},
+                layer: layer
+            };
+            
+            // Adicionar aos dados locais para próximas vezes
+            this.features.set(featureId, featureData);
+        }
         
         if (featureData) {
             console.log('✅ Dados da feature encontrados, populando modal');
