@@ -156,6 +156,129 @@ function dispatchMapEvents() {
     }));
     
     console.log('✅ Eventos disparados');
+    
+    // Auto-carregar features existentes
+    setTimeout(autoLoadFeatures, 1000);
+}
+
+// Função para auto-carregar features
+async function autoLoadFeatures() {
+    try {
+        console.log('🔄 Auto-carregando features existentes...');
+        
+        // Buscar features da API
+        const response = await fetch('/api/features');
+        if (!response.ok) {
+            console.log('ℹ️ Nenhuma feature para carregar');
+            return;
+        }
+        
+        const data = await response.json();
+        console.log(`📊 ${data.total} features encontradas`);
+        
+        if (data.total === 0) {
+            console.log('ℹ️ Nenhuma feature salva');
+            return;
+        }
+
+        // Limpar mapa primeiro
+        if (window.drawnItems) {
+            window.drawnItems.clearLayers();
+        }
+
+        // Carregar cada feature
+        let count = 0;
+        for (const feature of data.features) {
+            try {
+                let layer;
+                const geom = feature.geometry;
+
+                // Criar layer baseado no tipo
+                switch (geom.type) {
+                    case 'Point':
+                        layer = L.marker([geom.coordinates[1], geom.coordinates[0]]);
+                        break;
+                    case 'LineString':
+                        layer = L.polyline(geom.coordinates.map(c => [c[1], c[0]]));
+                        break;
+                    case 'Polygon':
+                        layer = L.polygon(geom.coordinates[0].map(c => [c[1], c[0]]));
+                        break;
+                }
+
+                if (layer) {
+                    // Configurar feature
+                    layer._featureId = feature.id;
+                    layer.feature = {
+                        type: 'Feature',
+                        geometry: geom,
+                        properties: feature.properties || {}
+                    };
+
+                    // Adicionar ao mapa
+                    window.drawnItems.addLayer(layer);
+
+                    // Popup com informações
+                    const name = feature.properties?.name || feature.id;
+                    layer.bindPopup(`<b>${name}</b><br>${feature.properties?.description || ''}`);
+
+                    count++;
+                }
+            } catch (e) {
+                console.error('❌ Erro carregando feature:', feature.id, e);
+            }
+        }
+
+        // Atualizar interface de features
+        if (window.geojsonInterface && window.geojsonInterface.features) {
+            window.geojsonInterface.features = new Map();
+            window.drawnItems.eachLayer(function(layer) {
+                if (layer._featureId && layer.feature) {
+                    window.geojsonInterface.features.set(layer._featureId, {
+                        id: layer._featureId,
+                        geometry: layer.feature.geometry,
+                        properties: layer.feature.properties
+                    });
+                }
+            });
+        }
+
+        // Atualizar lista de camadas
+        updateLayerPanel();
+
+        console.log(`🎉 ${count} features auto-carregadas!`);
+        
+    } catch (error) {
+        console.error('❌ Erro no auto-carregamento:', error);
+    }
+}
+
+// Função para atualizar painel de camadas
+function updateLayerPanel() {
+    const layerControls = document.getElementById('layer-controls');
+    if (!layerControls) return;
+
+    layerControls.innerHTML = '';
+
+    window.drawnItems.eachLayer(function(layer) {
+        if (layer.feature) {
+            const name = layer.feature.properties?.name || layer._featureId;
+            const div = document.createElement('div');
+            div.className = 'layer-item';
+            div.innerHTML = `
+                <div class="layer-info">
+                    <span class="layer-name">${name}</span>
+                    <small class="layer-type">${layer.feature.geometry.type}</small>
+                </div>
+                <div class="layer-controls">
+                    <button onclick="window.geojsonInterface?.selectFeature('${layer._featureId}')" class="layer-edit-btn">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+            `;
+            layerControls.appendChild(div);
+        }
+    });
 }
 
 // Auto-inicialização

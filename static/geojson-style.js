@@ -661,7 +661,7 @@ class GeojsonStyleInterface {
         
         // Informações da Gleba
         this.setFieldValue('gleba-numero', props.no_gleba || props['gleba-numero'] || '');
-        this.setFieldValue('gleba-nome', props.nome_gleba || props['gleba-nome'] || featureData.properties.nome_gleba || `${this.capitalizeFirst(featureData.type)} ${this.features.size}`);
+        this.setFieldValue('gleba-nome', props.nome_gleba || props['gleba-nome'] || featureData.properties.nome_gleba || `${this.capitalizeFirst(featureData.geometry?.type || 'Feature')} ${this.features.size}`);
         
         // Área e Perímetro (calculados automaticamente)
         if (featureData.layer) {
@@ -1202,6 +1202,7 @@ class GeojsonStyleInterface {
     }
 
     capitalizeFirst(str) {
+        if (!str || typeof str !== 'string') return 'Feature';
         return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
