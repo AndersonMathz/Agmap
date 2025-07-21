@@ -988,16 +988,41 @@ class GeojsonStyleInterface {
         if (featureData) {
             // Collect properties from form
             const properties = {};
-            const propertyRows = document.querySelectorAll('.geojson-property-row');
             
+            // Coletar dados das property rows (se existirem)
+            const propertyRows = document.querySelectorAll('.geojson-property-row');
             propertyRows.forEach(row => {
                 const keyInput = row.querySelector('.geojson-property-key');
                 const valueInput = row.querySelector('.geojson-property-value');
                 
-                if (keyInput.value.trim()) {
+                if (keyInput && valueInput && keyInput.value.trim()) {
                     properties[keyInput.value.trim()] = valueInput.value;
                 }
             });
+
+            // Coletar dados dos formulários específicos da gleba (ambos os formatos)
+            const formFields = [
+                // Formato novo (modal geojson)
+                'gleba-numero', 'gleba-nome', 'gleba-area', 'gleba-perimetro',
+                'proprietario-nome', 'proprietario-cpf', 'proprietario-rg',
+                'endereco-rua', 'endereco-bairro', 'endereco-quadra', 'endereco-cep', 
+                'endereco-cidade', 'endereco-uf',
+                'imovel-matricula', 'imovel-classe', 'imovel-tipo', 'imovel-descricao',
+                // Formato antigo (IDs simples)
+                'no_gleba', 'nome_gleba', 'area', 'perimetro',
+                'proprietario', 'cpf', 'rg',
+                'rua', 'bairro', 'quadra', 'cep', 'cidade',
+                'testada_frente', 'testada_direita', 'testada_esquerda', 'testada_fundo'
+            ];
+
+            formFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field && field.value.trim()) {
+                    properties[fieldId] = field.value.trim();
+                }
+            });
+
+            console.log('📝 Dados coletados do formulário:', properties);
 
             // Update feature data
             featureData.properties = properties;
@@ -1008,6 +1033,9 @@ class GeojsonStyleInterface {
             
             // Update layer panel to reflect changes
             this.updateLayersPanel();
+
+            // Salvar no servidor
+            this.saveFeatureToServer(featureData);
 
             console.log('💾 Feature salva com sucesso:', featureId);
             this.closeModal();
@@ -1258,6 +1286,40 @@ class GeojsonStyleInterface {
 
         if (layer.setStyle) {
             layer.setStyle(style);
+        }
+    }
+
+    async saveFeatureToServer(featureData) {
+        try {
+            console.log('🌐 Salvando feature no servidor...', featureData.id);
+            
+            const geoJSON = {
+                type: 'Feature',
+                geometry: featureData.geometry,
+                properties: featureData.properties || {}
+            };
+
+            const response = await fetch('/api/features', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    id: featureData.id,
+                    geojson: geoJSON,
+                    name: featureData.properties?.name || featureData.properties?.['gleba-nome'] || featureData.id
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Feature salva no servidor:', result);
+            } else {
+                console.error('❌ Erro ao salvar feature:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ Erro na requisição:', error);
         }
     }
 }
