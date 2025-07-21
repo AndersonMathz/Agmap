@@ -527,37 +527,89 @@ class GeojsonStyleInterface {
         // Clear and rebuild layer list
         layerControls.innerHTML = '';
         
+        // Sincronizar features com drawnItems
+        this.syncFeaturesWithDrawnItems();
+        
         let index = 1;
-        this.features.forEach((feature, id) => {
-            const layerDiv = document.createElement('div');
-            layerDiv.className = 'layer-item';
-            layerDiv.innerHTML = `
-                <div class="layer-info">
-                    <span class="layer-icon">
-                        <i class="fas fa-${this.getLayerIcon(feature.type)}"></i>
-                    </span>
-                    <div class="layer-details">
-                        <h6>${feature.properties.nome_gleba || `${this.capitalizeFirst(feature.type)} ${index}`}</h6>
-                        <p>POLÍGONO</p>
-                    </div>
-                </div>
-                <div class="layer-controls">
-                    <label class="switch">
-                        <input type="checkbox" checked onchange="window.geojsonInterface.toggleLayerVisibility('${id}', this.checked)">
-                        <span class="slider"></span>
-                    </label>
-                    <button class="btn-layer-info" onclick="window.geojsonInterface.zoomToFeature('${id}')">
-                        <i class="fas fa-search"></i>
-                    </button>
-                    <button class="btn-layer-edit" onclick="window.geojsonInterface.editFeatureById('${id}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                </div>
-            `;
-            
-            layerControls.appendChild(layerDiv);
-            index++;
-        });
+        
+        // Iterar por todas as layers no mapa, não apenas this.features
+        if (window.drawnItems) {
+            window.drawnItems.eachLayer((layer) => {
+                if (layer._featureId) {
+                    const featureId = layer._featureId;
+                    let featureData = this.features.get(featureId);
+                    
+                    // Se não está em this.features, criar entrada
+                    if (!featureData && layer.feature) {
+                        featureData = {
+                            id: featureId,
+                            type: layer.feature.geometry.type,
+                            layer: layer,
+                            properties: layer.feature.properties || {},
+                            geometry: layer.feature.geometry
+                        };
+                        this.features.set(featureId, featureData);
+                    }
+                    
+                    if (featureData) {
+                        const layerDiv = document.createElement('div');
+                        layerDiv.className = 'layer-item';
+                        
+                        const name = featureData.properties?.['gleba-nome'] || 
+                                   featureData.properties?.nome_gleba || 
+                                   featureData.properties?.name || 
+                                   `${this.capitalizeFirst(featureData.type)} ${index}`;
+                        
+                        layerDiv.innerHTML = `
+                            <div class="layer-info">
+                                <span class="layer-icon">
+                                    <i class="fas fa-${this.getLayerIcon(featureData.type)}"></i>
+                                </span>
+                                <div class="layer-details">
+                                    <h6>${name}</h6>
+                                    <p>${featureData.type.toUpperCase()}</p>
+                                </div>
+                            </div>
+                            <div class="layer-controls">
+                                <label class="switch">
+                                    <input type="checkbox" checked onchange="window.geojsonInterface.toggleLayerVisibility('${featureId}', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                                <button class="btn-layer-info" onclick="window.geojsonInterface.zoomToFeature('${featureId}')">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button class="btn-layer-edit" onclick="window.geojsonInterface.editFeatureById('${featureId}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        `;
+                        
+                        layerControls.appendChild(layerDiv);
+                        index++;
+                    }
+                }
+            });
+        }
+        
+        console.log(`🔄 Painel atualizado com ${index-1} features`);
+    }
+
+    syncFeaturesWithDrawnItems() {
+        // Sincronizar this.features com window.drawnItems
+        if (window.drawnItems) {
+            window.drawnItems.eachLayer((layer) => {
+                if (layer._featureId && !this.features.has(layer._featureId)) {
+                    const featureData = {
+                        id: layer._featureId,
+                        type: layer.feature?.geometry?.type || 'Unknown',
+                        layer: layer,
+                        properties: layer.feature?.properties || {},
+                        geometry: layer.feature?.geometry || {}
+                    };
+                    this.features.set(layer._featureId, featureData);
+                }
+            });
+        }
     }
 
     getLayerIcon(type) {
@@ -1054,6 +1106,9 @@ class GeojsonStyleInterface {
             // Remove from features collection
             this.features.delete(featureId);
             
+            // Delete from server
+            this.deleteFeatureFromServer(featureId);
+            
             // Update layer panel
             this.updateLayersPanel();
             
@@ -1307,7 +1362,8 @@ class GeojsonStyleInterface {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     id: featureData.id,
-                    geojson: geoJSON,
+                    geometry: featureData.geometry,
+                    properties: featureData.properties || {},
                     name: featureData.properties?.name || featureData.properties?.['gleba-nome'] || featureData.id
                 })
             });
@@ -1315,11 +1371,45 @@ class GeojsonStyleInterface {
             if (response.ok) {
                 const result = await response.json();
                 console.log('✅ Feature salva no servidor:', result);
+                
+                // Forçar recarregamento da lista após salvar
+                setTimeout(() => {
+                    if (window.updateLayerPanel) {
+                        window.updateLayerPanel();
+                    }
+                }, 500);
             } else {
                 console.error('❌ Erro ao salvar feature:', response.status);
             }
         } catch (error) {
             console.error('❌ Erro na requisição:', error);
+        }
+    }
+
+    async deleteFeatureFromServer(featureId) {
+        try {
+            console.log('🌐 Deletando feature do servidor...', featureId);
+            
+            const response = await fetch(`/api/features/${featureId}`, {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Feature deletada do servidor:', result);
+                
+                // Forçar recarregamento da lista após deletar
+                setTimeout(() => {
+                    if (window.updateLayerPanel) {
+                        window.updateLayerPanel();
+                    }
+                }, 500);
+            } else {
+                console.error('❌ Erro ao deletar feature:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ Erro na requisição de delete:', error);
         }
     }
 }
