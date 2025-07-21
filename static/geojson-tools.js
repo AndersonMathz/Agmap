@@ -86,6 +86,8 @@ function initializeGeoJsonTools() {
     window.currentFeature = currentFeature;
     window.openAttributeModal = openAttributeModal;
     window.loadExistingFeatures = loadExistingFeatures; // Expor para debug
+    window.updateLayersList = updateLayersList; // Expor para debug
+    window.forceReload = forceReload; // Expor função de reload manual
     
     // Aplicar máscaras de campos na inicialização
     setTimeout(() => {
@@ -1290,26 +1292,40 @@ async function loadFeatureToMap(featureData) {
 
 // ===== GERENCIAMENTO DE CAMADAS =====
 function updateLayersList() {
+    console.log('🔄 Atualizando lista de camadas...');
     const layerControls = document.getElementById('layer-controls');
-    if (!layerControls) return;
+    if (!layerControls) {
+        console.warn('⚠️ Elemento layer-controls não encontrado');
+        return;
+    }
     
     layerControls.innerHTML = '';
     
     const layers = [];
+    const totalLayers = drawnItems.getLayers().length;
+    console.log(`📊 Total de layers no drawnItems: ${totalLayers}`);
+    
     drawnItems.eachLayer(function(layer) {
+        console.log('🔍 Processando layer:', layer);
         if (layer.feature && layer.feature.properties) {
             const props = layer.feature.properties;
             const layerInfo = {
                 id: layer._featureId,
-                name: props.nome_gleba || props.no_gleba || 'Gleba sem nome',
+                name: props.name || props.nome_gleba || props.no_gleba || props.nome || 'Feature sem nome',
                 type: layer.feature.geometry.type,
                 layer: layer
             };
+            console.log('✅ Layer adicionado à lista:', layerInfo.name);
             layers.push(layerInfo);
+        } else {
+            console.warn('⚠️ Layer sem feature ou properties:', layer);
         }
     });
     
+    console.log(`📋 Total de layers válidos: ${layers.length}`);
+    
     if (layers.length === 0) {
+        console.log('ℹ️ Mostrando mensagem "Nenhuma camada criada"');
         layerControls.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center; padding: 20px;">Nenhuma camada criada</p>';
         return;
     }
@@ -1557,6 +1573,27 @@ function initializeGeometryLabels() {
     }
 }
 
+// Função para forçar recarregamento completo
+async function forceReload() {
+    console.log('🔄 Forçando recarregamento completo das features...');
+    try {
+        // Limpar tudo primeiro
+        drawnItems.clearLayers();
+        
+        // Recarregar features
+        await loadExistingFeatures();
+        
+        // Forçar atualização da lista
+        setTimeout(() => {
+            updateLayersList();
+        }, 1000);
+        
+        console.log('✅ Recarregamento forçado concluído');
+    } catch (error) {
+        console.error('❌ Erro no recarregamento forçado:', error);
+    }
+}
+
 // Expor funções globalmente para uso em outros scripts
 window.GeoJsonTools = {
     exportAllFeatures,
@@ -1569,6 +1606,7 @@ window.GeoJsonTools = {
     clearAllFeatures,
     clearMapOnly,
     addGeometryLabel,
+    forceReload,
     removeGeometryLabel,
     updateGeometryLabel
 };
