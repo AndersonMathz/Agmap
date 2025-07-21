@@ -68,13 +68,24 @@ function initializeGeoJsonTools() {
     // Configurar eventos do mapa
     setupMapEvents();
     
-    // Carregar features existentes do banco
-    loadExistingFeatures();
+    // Carregar features existentes do banco com delay
+    setTimeout(() => {
+        loadExistingFeatures();
+    }, 2000);
+    
+    // Adicionar recarregamento das features quando a página ganha foco
+    window.addEventListener('focus', () => {
+        console.log('🔄 Página ganhou foco, recarregando features...');
+        setTimeout(() => {
+            loadExistingFeatures();
+        }, 500);
+    });
     
     // Expor variáveis globalmente
     window.drawnItems = drawnItems;
     window.currentFeature = currentFeature;
     window.openAttributeModal = openAttributeModal;
+    window.loadExistingFeatures = loadExistingFeatures; // Expor para debug
     
     // Aplicar máscaras de campos na inicialização
     setTimeout(() => {
@@ -1118,6 +1129,37 @@ async function loadExistingFeatures() {
     try {
         console.log('🔄 Carregando features existentes do banco...');
         
+        // Aguardar autenticação antes de carregar features
+        let retries = 0;
+        let authResponse;
+        
+        while (retries < 5) {
+            try {
+                authResponse = await fetch('/api/auth/check', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
+                
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    if (authData.authenticated) {
+                        console.log('✅ Usuário autenticado, carregando features...');
+                        break;
+                    }
+                }
+            } catch (authError) {
+                console.log(`⚠️ Tentativa ${retries + 1} de verificação de auth falhou:`, authError);
+            }
+            
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Aguardar 1s entre tentativas
+        }
+        
+        if (retries >= 5) {
+            console.log('❌ Falha na autenticação após 5 tentativas, pulando carregamento');
+            return;
+        }
+        
         const response = await fetch('/api/features', {
             method: 'GET',
             credentials: 'same-origin'
@@ -1133,23 +1175,51 @@ async function loadExistingFeatures() {
         
         const data = await response.json();
         console.log('📊 Dados recebidos do banco:', data);
+        console.log('📊 Status da resposta:', data.status, 'Total:', data.total);
         
         if (data.features && data.features.length > 0) {
             console.log(`📥 Carregando ${data.features.length} features do banco`);
             
-            // Limpar features existentes primeiro
-            drawnItems.clearLayers();
-            
-            for (const featureData of data.features) {
-                await loadFeatureToMap(featureData);
+            // Verificar se drawnItems existe
+            if (!drawnItems) {
+                console.error('❌ drawnItems não definido!');
+                return;
             }
             
+            // Limpar features existentes primeiro
+            console.log('🧹 Limpando features existentes...');
+            drawnItems.clearLayers();
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const featureData of data.features) {
+                try {
+                    console.log(`🔄 Carregando feature ${featureData.id}:`, featureData);
+                    await loadFeatureToMap(featureData);
+                    successCount++;
+                } catch (loadError) {
+                    console.error(`❌ Erro carregando feature ${featureData.id}:`, loadError);
+                    errorCount++;
+                }
+            }
+            
+            console.log(`✅ Carregamento concluído: ${successCount} sucessos, ${errorCount} erros`);
+            
             // Atualizar lista de camadas após carregar todas
-            updateLayersList();
+            if (typeof updateLayersList === 'function') {
+                updateLayersList();
+            } else {
+                console.warn('⚠️ updateLayersList não é uma função');
+            }
+            
+            // Verificar quantas features foram realmente adicionadas
+            const layerCount = drawnItems.getLayers().length;
+            console.log(`📊 Total de layers no mapa: ${layerCount}`);
             
             console.log('✅ Features carregadas com sucesso do banco');
         } else {
-            console.log('ℹ️ Nenhuma feature encontrada no banco');
+            console.log('ℹ️ Nenhuma feature encontrada no banco - data.features:', data.features);
         }
         
     } catch (error) {
